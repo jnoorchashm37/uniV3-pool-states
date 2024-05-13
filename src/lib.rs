@@ -34,11 +34,19 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
 
     let current_block = node.get_current_block()?;
 
-    let pools = Box::leak(Box::new(get_initial_pools(&node, db).await?));
+    let (min_block, pools) = get_initial_pools(&node, db).await?;
 
-    //  let handler = PoolHandler::new(node, db, pools, 19800000, current_block, handle.clone(), 10);
+    let handler = PoolHandler::new(
+        node,
+        db,
+        Box::leak(Box::new(pools)),
+        min_block,
+        current_block,
+        handle.clone(),
+        10,
+    );
 
-    let handler = PoolHandler::new(node, db, pools, 12369821, 12369825, handle.clone(), 10);
+    //   let handler = PoolHandler::new(node, db, pools, 12369821, 12369825, handle.clone(), 100);
 
     handler.await;
 
@@ -48,7 +56,7 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
 async fn get_initial_pools(
     node: &RethDbApiClient,
     db: &'static ClickhouseClient<UniswapV3Tables>,
-) -> eyre::Result<Vec<TickFetcher>> {
+) -> eyre::Result<(u64, Vec<TickFetcher>)> {
     let query = "
         SELECT DISTINCT
             (toString(address), init_block)
@@ -71,14 +79,18 @@ async fn get_initial_pools(
 
     let initial_pools: Vec<(String, u64)> = db.query_many(query, &()).await?;
 
-    join_all(
+    let pools = join_all(
         initial_pools
             .into_iter()
             .map(|(addr, blk)| TickFetcher::new(node, Address::from_str(&addr).unwrap(), blk)),
     )
     .await
     .into_iter()
-    .collect()
+    .collect::<eyre::Result<Vec<_>>>()?;
+
+    let min_block = pools.iter().map(|p| p.earliest_block).min().unwrap();
+
+    Ok((min_block, pools))
 }
 
 static RAYON_PRICING_THREADPOOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
