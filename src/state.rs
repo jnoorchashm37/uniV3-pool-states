@@ -31,7 +31,7 @@ impl PoolState {
     ) -> Self {
         Self {
             block_number,
-            pool_address: format!("{:?}", address),
+            pool_address: format!("{:?}", address).to_lowercase(),
             tick,
             liquidity_gross: tick_return.liquidityGross,
             liquidity_net: tick_return.liquidityNet,

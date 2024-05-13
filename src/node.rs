@@ -1,13 +1,10 @@
-use std::{collections::HashSet, fmt::Debug, path::Path, sync::Arc};
+use std::{fmt::Debug, path::Path, sync::Arc};
 
-use alloy_primitives::{Address, Bytes, TxHash};
-use alloy_rpc_types::{
-    AnyReceiptEnvelope, Block, Filter, Log, ReceiptEnvelope, Rich, Transaction, TransactionReceipt,
-    TransactionRequest,
-};
+use alloy_primitives::Address;
+use alloy_rpc_types::TransactionRequest;
 use alloy_sol_types::SolCall;
-use chrono::{DateTime, Datelike, Timelike, Utc};
-use eyre::{Context, Result};
+
+use eyre::Context;
 use reth_beacon_consensus::BeaconConsensus;
 use reth_blockchain_tree::{
     BlockchainTree, BlockchainTreeConfig, ShareableBlockchainTree, TreeExternals,
@@ -22,10 +19,8 @@ use reth_db::{
 };
 use reth_network_api::noop::NoopNetwork;
 use reth_node_ethereum::EthEvmConfig;
-use reth_primitives::{constants::ETHEREUM_BLOCK_GAS_LIMIT, Bytecode, MAINNET, U256};
-use reth_provider::{
-    providers::BlockchainProvider, DatabaseProvider, ProviderFactory, StateProvider,
-};
+use reth_primitives::{constants::ETHEREUM_BLOCK_GAS_LIMIT, MAINNET, U256};
+use reth_provider::{providers::BlockchainProvider, DatabaseProvider, ProviderFactory};
 use reth_revm::EvmProcessorFactory;
 use reth_rpc::{
     eth::{
@@ -35,11 +30,8 @@ use reth_rpc::{
     },
     DebugApi, EthApi, EthFilter, TraceApi,
 };
-use reth_rpc_api::{EthApiServer, EthFilterApiServer};
-use reth_rpc_types::{
-    trace::parity::{TraceResultsWithTransactionHash, TraceType},
-    TransactionInput,
-};
+use reth_rpc_api::EthApiServer;
+use reth_rpc_types::TransactionInput;
 use reth_tasks::{
     pool::{BlockingTaskGuard, BlockingTaskPool},
     TaskManager,
@@ -50,10 +42,7 @@ use reth_transaction_pool::{
 };
 use tokio::runtime::Handle;
 
-use crate::{
-    contracts::UniswapV3::{self, UniswapV3Calls},
-    state::PoolState,
-};
+use crate::contracts::UniswapV3::{self};
 
 pub(crate) type RethClient = BlockchainProvider<
     Arc<DatabaseEnv>,
@@ -74,24 +63,17 @@ pub(crate) type RethDbProvider = DatabaseProvider<Tx<RO>>;
 
 pub struct RethDbApiClient {
     reth_api: RethApi,
-    reth_filter: RethFilter,
-    reth_trace: RethTrace,
-    _reth_debug: RethDebug,
-    _reth_db_provider: RethDbProvider,
 }
 
 impl RethDbApiClient {
     pub async fn new(db_path: &str, handle: Handle) -> eyre::Result<Self> {
-        let (reth_api, reth_filter, reth_trace, _reth_debug, _reth_db_provider) =
-            init(Path::new(db_path), handle)?;
+        let (reth_api, _, _, _, _) = init(Path::new(db_path), handle)?;
 
-        Ok(Self {
-            reth_api,
-            reth_filter,
-            reth_trace,
-            _reth_debug,
-            _reth_db_provider,
-        })
+        Ok(Self { reth_api })
+    }
+
+    pub fn get_current_block(&self) -> eyre::Result<u64> {
+        Ok(self.reth_api.block_number()?.to())
     }
 
     pub async fn get_tick_spacing(

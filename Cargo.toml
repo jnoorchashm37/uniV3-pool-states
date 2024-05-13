@@ -89,3 +89,8 @@ indexmap = "2.2.3"
 dyn-clone = "1.0.16"
 pin-project = "1.1.4"
 rayon = "1.10.0"
+
+
+# tracing
+tracing = "0.1.0"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "ansi"] }

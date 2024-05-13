@@ -8669,6 +8669,8 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-tungstenite",
+ "tracing",
+ "tracing-subscriber",
  "url",
 ]
 
