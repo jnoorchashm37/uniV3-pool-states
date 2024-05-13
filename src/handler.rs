@@ -37,7 +37,7 @@ impl Future for PoolHandler {
 
         while let Poll::Ready(Some(val)) = this.futs.poll_next_unpin(cx) {
             if let Err((b, e)) = val {
-                error!(target: "uni-v3", "failed to get block {b}, retrying - {:?} ", e);
+                error!(target: "uni-v3", "pool: {:?} - failed to get block {b}, retrying - {:?}", this.fetcher.pool, e);
                 let curr_block = this.fetcher.current_block;
                 this.fetcher.current_block = b;
                 this.futs

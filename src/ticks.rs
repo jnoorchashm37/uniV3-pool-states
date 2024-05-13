@@ -9,12 +9,13 @@ use alloy_primitives::U256;
 use db_interfaces::clickhouse::client::ClickhouseClient;
 use db_interfaces::Database;
 use futures::future::join_all;
+use tracing::info;
 
 #[derive(Clone)]
 pub struct TickFetcher {
     node: Arc<RethDbApiClient>,
     db: Arc<ClickhouseClient<UniswapV3Tables>>,
-    pool: Address,
+    pub pool: Address,
     min_word: i16,
     max_word: i16,
     tick_spacing: i32,
@@ -53,6 +54,8 @@ impl TickFetcher {
         self.insert_values(state)
             .await
             .map_err(|e| (self.current_block, e))?;
+
+        info!(target: "uni-v3", "pool: {:?} - completed block {}", self.pool, self.current_block);
 
         Ok(())
     }
