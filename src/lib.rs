@@ -21,7 +21,9 @@ pub mod state;
 pub mod ticks;
 
 pub async fn run(handle: Handle) -> eyre::Result<()> {
-    aux::init(vec![aux::stdout(Level::DEBUG.into())]);
+    aux::init(vec![aux::stdout(
+        format!("uni-v3={}", Level::DEBUG).parse()?,
+    )]);
 
     let reth_db_path = std::env::var("RETH_DB_PATH").expect("no 'RETH_DB_PATH' in .env");
     let node = Arc::new(RethDbApiClient::new(&reth_db_path, handle.clone()).await?);
