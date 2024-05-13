@@ -80,7 +80,7 @@ async fn get_initial_pools(
             node.clone(),
             db.clone(),
             Address::from_str(&addr).unwrap(),
-            blk + 400,
+            blk,
         )
     }))
     .await
