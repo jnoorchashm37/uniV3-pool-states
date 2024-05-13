@@ -55,8 +55,10 @@ async fn get_initial_pools(
         SELECT DISTINCT
             (toString(address), init_block)
         FROM ethereum.pools
-        WHERE protocol = 'Uniswap' AND protocol_subtype = 'V3' AND address = '0xcbcdf9626bc03e24f779434178a73a0b4bad62ed'
+        WHERE protocol = 'Uniswap' AND protocol_subtype = 'V3' LIMIT 10
     ";
+
+    //AND address = '0xcbcdf9626bc03e24f779434178a73a0b4bad62ed'
 
     let initial_pools: Vec<(String, u64)> = db.query_many(query, &()).await?;
 
