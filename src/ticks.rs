@@ -9,6 +9,7 @@ use alloy_primitives::U256;
 use db_interfaces::clickhouse::client::ClickhouseClient;
 use db_interfaces::Database;
 use futures::future::join_all;
+use tracing::debug;
 use tracing::info;
 
 #[derive(Clone)]
@@ -54,6 +55,8 @@ impl TickFetcher {
         if state.is_empty() {
             return Ok(());
         }
+
+        debug!(target: "uni-v3", "pool: {:?} - got state for block {}", self.pool, self.current_block);
 
         self.insert_values(state)
             .await
