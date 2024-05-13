@@ -39,7 +39,12 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
         .map(|p| {
             let this_handle = handle.clone();
             handle.clone().spawn_blocking(move || {
-                this_handle.block_on(PoolHandler::new(p, current_block, this_handle.clone(), 100))
+                this_handle.block_on(PoolHandler::new(
+                    p,
+                    current_block,
+                    this_handle.clone(),
+                    1000,
+                ))
             })
         })
         .collect::<FuturesUnordered<_>>();
@@ -80,7 +85,7 @@ async fn get_initial_pools(
             node.clone(),
             db.clone(),
             Address::from_str(&addr).unwrap(),
-            blk,
+            blk + 400,
         )
     }))
     .await
