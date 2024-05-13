@@ -3,21 +3,25 @@ use futures::StreamExt;
 use futures::{stream::FuturesUnordered, Future};
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use tokio::runtime::Handle;
+use tokio::task::JoinHandle;
 use tracing::error;
 
 pub struct PoolHandler {
     pub fetcher: TickFetcher,
-    pub futs: FuturesUnordered<Pin<Box<dyn Future<Output = Result<(), (u64, eyre::ErrReport)>>>>>,
+    pub futs: FuturesUnordered<JoinHandle<Result<(), (u64, eyre::ErrReport)>>>,
     pub end_block: u64,
+    pub handle: Handle,
     pub max_tasks: usize,
 }
 
 impl PoolHandler {
-    pub fn new(fetcher: TickFetcher, end_block: u64, max_tasks: usize) -> Self {
+    pub fn new(fetcher: TickFetcher, end_block: u64, handle: Handle, max_tasks: usize) -> Self {
         Self {
             fetcher,
             futs: FuturesUnordered::new(),
             end_block,
+            handle,
             max_tasks,
         }
     }
@@ -30,18 +34,24 @@ impl Future for PoolHandler {
         let this = self.get_mut();
 
         while this.futs.len() < this.max_tasks && this.end_block >= this.fetcher.current_block {
-            this.futs
-                .push(Box::pin(this.fetcher.clone().execute_block()));
+            this.futs.push(
+                this.handle
+                    .clone()
+                    .spawn(this.fetcher.clone().execute_block()),
+            );
             this.fetcher.current_block += 1;
         }
 
         while let Poll::Ready(Some(val)) = this.futs.poll_next_unpin(cx) {
-            if let Err((b, e)) = val {
+            if let Ok(Err((b, e))) = val {
                 error!(target: "uni-v3", "pool: {:?} - failed to get block {b}, retrying - {:?}", this.fetcher.pool, e);
                 let curr_block = this.fetcher.current_block;
                 this.fetcher.current_block = b;
-                this.futs
-                    .push(Box::pin(this.fetcher.clone().execute_block()));
+                this.futs.push(
+                    this.handle
+                        .clone()
+                        .spawn(this.fetcher.clone().execute_block()),
+                );
                 this.fetcher.current_block = curr_block;
             }
         }
