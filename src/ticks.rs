@@ -66,27 +66,22 @@ impl TickFetcher {
 
     async fn get_state_from_ticks(&self) -> eyre::Result<Vec<PoolState>> {
         let bitmaps = self.get_bitmaps().await?;
-        let ticks = self.get_ticks(bitmaps).await?;
+        let ticks = self.get_ticks(bitmaps)?;
 
-        join_all(ticks.into_iter().map(|tick| async move {
-            let tick_return = self
-                .node
-                .get_state_at_tick(self.pool, tick, self.current_block)
-                .await?;
+        let states = self
+            .node
+            .get_state_at_ticks(self.pool, ticks, self.current_block)
+            .await?;
 
-            Ok(PoolState::new_with_block_and_address(
-                tick_return,
-                self.pool,
-                tick,
-                self.current_block,
-            ))
-        }))
-        .await
-        .into_iter()
-        .collect::<eyre::Result<Vec<_>>>()
+        Ok(states
+            .into_iter()
+            .map(|(tick, state)| {
+                PoolState::new_with_block_and_address(state, self.pool, tick, self.current_block)
+            })
+            .collect())
     }
 
-    async fn get_ticks(&self, bitmaps: Vec<(i16, U256)>) -> eyre::Result<Vec<i32>> {
+    fn get_ticks(&self, bitmaps: Vec<(i16, U256)>) -> eyre::Result<Vec<i32>> {
         let vals = bitmaps
             .into_iter()
             .flat_map(|(idx, map)| {
@@ -112,20 +107,10 @@ impl TickFetcher {
     }
 
     async fn get_bitmaps(&self) -> eyre::Result<Vec<(i16, U256)>> {
-        join_all(
-            (self.min_word..self.max_word)
-                .into_iter()
-                .map(|i| async move {
-                    let bitmap_result = self
-                        .node
-                        .get_tick_bitmap(self.pool, i, self.current_block)
-                        .await?;
-                    Ok((i, bitmap_result))
-                }),
-        )
-        .await
-        .into_iter()
-        .collect::<eyre::Result<Vec<_>>>()
+        Ok(self
+            .node
+            .get_tick_bitmaps(self.pool, self.min_word..self.max_word, self.current_block)
+            .await?)
     }
 }
 

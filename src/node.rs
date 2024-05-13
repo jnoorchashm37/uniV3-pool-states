@@ -1,10 +1,11 @@
-use std::{fmt::Debug, path::Path, sync::Arc};
+use std::{fmt::Debug, ops::Range, path::Path, sync::Arc};
 
 use alloy_primitives::Address;
 use alloy_rpc_types::TransactionRequest;
 use alloy_sol_types::SolCall;
 
 use eyre::Context;
+use itertools::Itertools;
 use reth_beacon_consensus::BeaconConsensus;
 use reth_blockchain_tree::{
     BlockchainTree, BlockchainTreeConfig, ShareableBlockchainTree, TreeExternals,
@@ -31,7 +32,7 @@ use reth_rpc::{
     DebugApi, EthApi, EthFilter, TraceApi,
 };
 use reth_rpc_api::EthApiServer;
-use reth_rpc_types::TransactionInput;
+use reth_rpc_types::{Bundle, StateContext, TransactionInput};
 use reth_tasks::{
     pool::{BlockingTaskGuard, BlockingTaskPool},
     TaskManager,
@@ -67,7 +68,7 @@ pub struct RethDbApiClient {
 
 impl RethDbApiClient {
     pub async fn new(db_path: &str, handle: Handle) -> eyre::Result<Self> {
-        let (reth_api, _, _, _, _) = init(Path::new(db_path), handle)?;
+        let (reth_api, _, _, _, db) = init(Path::new(db_path), handle)?;
 
         Ok(Self { reth_api })
     }
@@ -88,29 +89,46 @@ impl RethDbApiClient {
             ._0)
     }
 
-    pub async fn get_tick_bitmap(
+    pub async fn get_tick_bitmaps(
         &self,
         address: Address,
-        word: i16,
+        words: Range<i16>,
         block_number: u64,
-    ) -> eyre::Result<U256> {
-        let request = UniswapV3::tickBitmapCall { _0: word };
+    ) -> eyre::Result<Vec<(i16, U256)>> {
+        let requests = words
+            .clone()
+            .into_iter()
+            .map(|word| UniswapV3::tickBitmapCall { _0: word })
+            .collect();
+
         Ok(self
-            .make_call_request(request, address, Some(block_number))
+            .make_call_many_request(requests, address, Some(block_number))
             .await?
-            ._0)
+            .into_iter()
+            .zip(words)
+            .map(|(v, t)| (t, v._0))
+            .collect_vec())
     }
 
-    pub async fn get_state_at_tick(
+    pub async fn get_state_at_ticks(
         &self,
         address: Address,
-        tick: i32,
+        ticks: Vec<i32>,
         block_number: u64,
-    ) -> eyre::Result<UniswapV3::ticksReturn> {
-        let request = UniswapV3::ticksCall { _0: tick };
+    ) -> eyre::Result<Vec<(i32, UniswapV3::ticksReturn)>> {
+        let requests = ticks
+            .clone()
+            .into_iter()
+            .map(|tick| UniswapV3::ticksCall { _0: tick })
+            .collect();
+
         Ok(self
-            .make_call_request(request, address, Some(block_number))
-            .await?)
+            .make_call_many_request(requests, address, Some(block_number))
+            .await?
+            .into_iter()
+            .zip(ticks)
+            .map(|(v, t)| (t, v))
+            .collect_vec())
     }
 
     async fn make_call_request<C: SolCall>(
@@ -133,6 +151,46 @@ impl RethDbApiClient {
             .await?;
 
         Ok(C::abi_decode_returns(&res, false)?)
+    }
+
+    async fn make_call_many_request<C: SolCall>(
+        &self,
+        calls: Vec<C>,
+        to: Address,
+        block_number: Option<u64>,
+    ) -> eyre::Result<Vec<C::Return>> {
+        let reqs = calls
+            .into_iter()
+            .map(|call| {
+                let encoded = call.abi_encode();
+                TransactionRequest {
+                    to: Some(to),
+                    input: TransactionInput::new(encoded.into()),
+                    chain_id: Some(1),
+                    ..Default::default()
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let bundle = Bundle {
+            transactions: reqs,
+            block_override: None,
+        };
+
+        let state = StateContext {
+            block_number: block_number.map(Into::into),
+            transaction_index: None,
+        };
+
+        let res = self
+            .reth_api
+            .call_many(bundle, Some(state), Default::default())
+            .await?
+            .into_iter()
+            .filter_map(|r| r.value.map(|v| Ok(C::abi_decode_returns(&v, false)?)))
+            .collect::<eyre::Result<Vec<_>>>();
+
+        res
     }
 }
 
