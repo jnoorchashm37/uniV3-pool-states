@@ -70,7 +70,7 @@ impl<'a> PoolCaller<'a> {
             .flatten()
             .collect::<Vec<_>>();
 
-        info!(target: "uni-v3", "completed block {} for {} pools with {} bips", self.block_number, pools.len(), state.len());
+        info!(target: "uni-v3", "completed block {} for {} pools with {} total ticks", self.block_number, pools.len(), state.len());
 
         // if !state.is_empty() {
         //     println!("{:?}", state[0])

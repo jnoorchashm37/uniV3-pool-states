@@ -22,7 +22,7 @@ pub mod ticks;
 
 pub async fn run(handle: Handle) -> eyre::Result<()> {
     aux::init(vec![aux::stdout(
-        format!("uni-v3={}", Level::DEBUG).parse()?,
+        format!("uni-v3={}", Level::INFO).parse()?,
     )]);
 
     init_threadpool();
@@ -43,7 +43,7 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
         min_block,
         current_block,
         handle.clone(),
-        10,
+        1000,
     );
 
     //   let handler = PoolHandler::new(node, db, pools, 12369821, 12369825, handle.clone(), 100);
