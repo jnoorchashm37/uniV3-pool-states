@@ -24,7 +24,7 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
     aux::init(vec![aux::stdout(Level::INFO.into())]);
 
     let reth_db_path = std::env::var("RETH_DB_PATH").expect("no 'RETH_DB_PATH' in .env");
-    let node = Arc::new(RethDbApiClient::new(&reth_db_path, handle).await?);
+    let node = Arc::new(RethDbApiClient::new(&reth_db_path, handle.clone()).await?);
 
     let db = Arc::new(spawn_clickhouse_db());
 
@@ -34,7 +34,12 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
 
     let handlers = pools
         .into_iter()
-        .map(|p| PoolHandler::new(p, current_block, 1000))
+        .map(|p| {
+            let this_handle = handle.clone();
+            handle.clone().spawn_blocking(move || {
+                this_handle.block_on(PoolHandler::new(p, current_block, 1000))
+            })
+        })
         .collect::<FuturesUnordered<_>>();
 
     join_all(handlers).await;
