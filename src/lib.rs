@@ -34,7 +34,7 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
 
     let handlers = pools
         .into_iter()
-        .map(|p| PoolHandler::new(p, current_block, 10000))
+        .map(|p| PoolHandler::new(p, current_block, 1000))
         .collect::<FuturesUnordered<_>>();
 
     join_all(handlers).await;
