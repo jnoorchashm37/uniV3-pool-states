@@ -92,6 +92,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_map() {
+        dotenv::dotenv().ok();
+
         let db_path = std::env::var("RETH_DB_PATH").expect("no 'RETH_DB_PATH' in .env");
         let node = RethDbApiClient::new(&db_path, tokio::runtime::Handle::current())
             .await
