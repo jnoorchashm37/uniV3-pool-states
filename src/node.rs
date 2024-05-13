@@ -50,7 +50,10 @@ use reth_transaction_pool::{
 };
 use tokio::runtime::Handle;
 
-use crate::contracts::UniswapV3::{self, UniswapV3Calls};
+use crate::{
+    contracts::UniswapV3::{self, UniswapV3Calls},
+    state::PoolState,
+};
 
 pub(crate) type RethClient = BlockchainProvider<
     Arc<DatabaseEnv>,
@@ -94,7 +97,6 @@ impl RethDbApiClient {
     pub async fn get_tick_spacing(
         &self,
         address: Address,
-
         block_number: Option<u64>,
     ) -> eyre::Result<i32> {
         let request = UniswapV3::tickSpacingCall {};
@@ -108,13 +110,25 @@ impl RethDbApiClient {
         &self,
         address: Address,
         word: i16,
-        block_number: Option<u64>,
+        block_number: u64,
     ) -> eyre::Result<U256> {
         let request = UniswapV3::tickBitmapCall { _0: word };
         Ok(self
-            .make_call_request(request, address, block_number)
+            .make_call_request(request, address, Some(block_number))
             .await?
             ._0)
+    }
+
+    pub async fn get_state_at_tick(
+        &self,
+        address: Address,
+        tick: i32,
+        block_number: u64,
+    ) -> eyre::Result<UniswapV3::ticksReturn> {
+        let request = UniswapV3::ticksCall { _0: tick };
+        Ok(self
+            .make_call_request(request, address, Some(block_number))
+            .await?)
     }
 
     async fn make_call_request<C: SolCall>(
