@@ -1,34 +1,24 @@
-use std::sync::Arc;
-
-use crate::db::UniV3PoolState;
-use crate::db::UniswapV3Tables;
 use crate::node::RethDbApiClient;
+use crate::pools::PoolDBInner;
 use crate::state::PoolState;
 use alloy_primitives::Address;
 use alloy_primitives::U256;
-use db_interfaces::clickhouse::client::ClickhouseClient;
-use db_interfaces::Database;
-use futures::future::join_all;
 use tracing::debug;
-use tracing::info;
 
 #[derive(Clone)]
 pub struct TickFetcher {
-    node: Arc<RethDbApiClient>,
-    db: Arc<ClickhouseClient<UniswapV3Tables>>,
     pub pool: Address,
-    min_word: i16,
-    max_word: i16,
-    tick_spacing: i32,
-    pub current_block: u64,
+    pub min_word: i16,
+    pub max_word: i16,
+    pub tick_spacing: i32,
+    pub earliest_block: u64,
 }
 
 impl TickFetcher {
     pub async fn new(
-        node: Arc<RethDbApiClient>,
-        db: Arc<ClickhouseClient<UniswapV3Tables>>,
+        node: &RethDbApiClient,
         pool: Address,
-        initial_block: u64,
+        earliest_block: u64,
     ) -> eyre::Result<Self> {
         let tick_spacing = node.get_tick_spacing(pool, None).await?;
 
@@ -36,43 +26,36 @@ impl TickFetcher {
         let max_word = (887272_i32 >> 8) as i16;
 
         Ok(Self {
-            db,
-            node,
             pool,
             min_word,
             max_word,
             tick_spacing,
-            current_block: initial_block,
+            earliest_block,
         })
     }
 
-    pub async fn execute_block(self) -> Result<(), (u64, eyre::ErrReport)> {
-        let state = self
-            .get_state_from_ticks()
-            .await
-            .map_err(|e| (self.current_block, e))?;
+    pub fn execute_block(
+        &self,
+        inner: PoolDBInner,
+        block_number: u64,
+    ) -> eyre::Result<Vec<PoolState>> {
+        let state = self.get_state_from_ticks(&inner, block_number)?;
 
         if state.is_empty() {
-            return Ok(());
+            return Ok(Vec::new());
         }
 
-        debug!(target: "uni-v3", "pool: {:?} - got state for block {}", self.pool, self.current_block);
+        debug!(target: "uni-v3", "pool: {:?} - got state for block {}", self.pool, block_number);
 
-        self.insert_values(state)
-            .await
-            .map_err(|e| (self.current_block, e))?;
-
-        info!(target: "uni-v3", "pool: {:?} - completed block {}", self.pool, self.current_block);
-
-        Ok(())
+        Ok(state)
     }
 
-    async fn insert_values(&self, state: Vec<PoolState>) -> eyre::Result<()> {
-        Ok(self.db.insert_many::<UniV3PoolState>(&state).await?)
-    }
-
-    async fn get_state_from_ticks(&self) -> eyre::Result<Vec<PoolState>> {
-        let bitmaps = self.get_bitmaps().await?;
+    fn get_state_from_ticks(
+        &self,
+        inner: &PoolDBInner,
+        block_number: u64,
+    ) -> eyre::Result<Vec<PoolState>> {
+        let bitmaps = self.get_bitmaps(inner)?;
         if bitmaps.is_empty() {
             return Ok(Vec::new());
         }
@@ -83,15 +66,12 @@ impl TickFetcher {
             return Ok(Vec::new());
         }
 
-        let states = self
-            .node
-            .get_state_at_ticks(self.pool, ticks, self.current_block)
-            .await?;
+        let states = inner.get_state_at_ticks(self.pool, ticks)?;
 
         Ok(states
             .into_iter()
             .map(|(tick, state)| {
-                PoolState::new_with_block_and_address(state, self.pool, tick, self.current_block)
+                PoolState::new_with_block_and_address(state, self.pool, tick, block_number)
             })
             .collect())
     }
@@ -121,15 +101,12 @@ impl TickFetcher {
         Ok(vals)
     }
 
-    async fn get_bitmaps(&self) -> eyre::Result<Vec<(i16, U256)>> {
+    fn get_bitmaps(&self, inner: &PoolDBInner) -> eyre::Result<Vec<(i16, U256)>> {
         let range = self.min_word..self.max_word;
         if range.is_empty() {
             Ok(Vec::new())
         } else {
-            Ok(self
-                .node
-                .get_tick_bitmaps(self.pool, range, self.current_block)
-                .await?)
+            Ok(inner.get_tick_bitmaps(self.pool, range)?)
         }
     }
 }
@@ -144,28 +121,28 @@ mod tests {
 
     #[tokio::test]
     async fn test_map() {
-        dotenv::dotenv().ok();
+        // dotenv::dotenv().ok();
 
-        let reth_db_path = std::env::var("RETH_DB_PATH").expect("no 'RETH_DB_PATH' in .env");
-        let node = RethDbApiClient::new(&reth_db_path, tokio::runtime::Handle::current())
-            .await
-            .unwrap();
+        // let reth_db_path = std::env::var("RETH_DB_PATH").expect("no 'RETH_DB_PATH' in .env");
+        // let node = RethDbApiClient::new(&reth_db_path, tokio::runtime::Handle::current())
+        //     .await
+        //     .unwrap();
 
-        let db = spawn_clickhouse_db();
+        // let db = spawn_clickhouse_db();
 
-        let fetcher = TickFetcher::new(
-            Arc::new(node),
-            Arc::new(db),
-            Address::from_str("0xCBCdF9626bC03E24f779434178A73a0B4bad62eD").unwrap(),
-            19858960,
-        )
-        .await
-        .unwrap();
+        // let fetcher = TickFetcher::new(
+        //     Arc::new(node),
+        //     Arc::new(db),
+        //     Address::from_str("0xCBCdF9626bC03E24f779434178A73a0B4bad62eD").unwrap(),
+        //     19858960,
+        // )
+        // .await
+        // .unwrap();
 
-        let ticks = fetcher.get_state_from_ticks().await.unwrap();
+        // let ticks = fetcher.get_state_from_ticks().await.unwrap();
 
-        for t in ticks {
-            println!("{:?}", t);
-        }
+        // for t in ticks {
+        //     println!("{:?}", t);
+        // }
     }
 }

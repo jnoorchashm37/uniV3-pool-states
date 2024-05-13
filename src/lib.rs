@@ -7,7 +7,7 @@ use futures::stream::FuturesUnordered;
 use handler::PoolHandler;
 use node::RethDbApiClient;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use ticks::TickFetcher;
 use tokio::runtime::Handle;
 use tracing::Level;
@@ -17,6 +17,7 @@ pub mod contracts;
 pub mod db;
 pub mod handler;
 pub mod node;
+pub mod pools;
 pub mod state;
 pub mod ticks;
 
@@ -28,35 +29,22 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
     let reth_db_path = std::env::var("RETH_DB_PATH").expect("no 'RETH_DB_PATH' in .env");
     let node = Arc::new(RethDbApiClient::new(&reth_db_path, handle.clone()).await?);
 
-    let db = Arc::new(spawn_clickhouse_db());
+    let db = Box::leak(Box::new(spawn_clickhouse_db()));
 
     let current_block = node.get_current_block()?;
 
-    let pools = get_initial_pools(node, db).await?;
+    let pools = Box::leak(Box::new(get_initial_pools(&node, db).await?));
 
-    let handlers = pools
-        .into_iter()
-        .map(|p| {
-            let this_handle = handle.clone();
-            handle.clone().spawn_blocking(move || {
-                this_handle.block_on(PoolHandler::new(
-                    p,
-                    current_block,
-                    this_handle.clone(),
-                    1000,
-                ))
-            })
-        })
-        .collect::<FuturesUnordered<_>>();
+    let handler = PoolHandler::new(node, db, pools, 19800000, current_block, handle.clone(), 10);
 
-    join_all(handlers).await;
+    handler.await;
 
     Ok(())
 }
 
 async fn get_initial_pools(
-    node: Arc<RethDbApiClient>,
-    db: Arc<ClickhouseClient<UniswapV3Tables>>,
+    node: &RethDbApiClient,
+    db: &'static ClickhouseClient<UniswapV3Tables>,
 ) -> eyre::Result<Vec<TickFetcher>> {
     let query = "
         SELECT DISTINCT
@@ -80,15 +68,34 @@ async fn get_initial_pools(
 
     let initial_pools: Vec<(String, u64)> = db.query_many(query, &()).await?;
 
-    join_all(initial_pools.into_iter().map(|(addr, blk)| {
-        TickFetcher::new(
-            node.clone(),
-            db.clone(),
-            Address::from_str(&addr).unwrap(),
-            blk,
-        )
-    }))
+    join_all(
+        initial_pools
+            .into_iter()
+            .map(|(addr, blk)| TickFetcher::new(node, Address::from_str(&addr).unwrap(), blk)),
+    )
     .await
     .into_iter()
     .collect()
+}
+
+static RAYON_PRICING_THREADPOOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
+
+pub fn init_threadpool() {
+    let threadpool = rayon::ThreadPoolBuilder::new()
+        .num_threads(256)
+        .build()
+        .unwrap();
+
+    let _ = RAYON_PRICING_THREADPOOL.set(threadpool);
+}
+
+pub fn execute_on_threadpool<OP, R>(op: OP) -> R
+where
+    OP: FnOnce() -> R + Send,
+    R: Send,
+{
+    RAYON_PRICING_THREADPOOL
+        .get()
+        .expect("threadpool not initialized")
+        .install(op)
 }

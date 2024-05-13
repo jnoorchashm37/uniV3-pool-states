@@ -21,18 +21,25 @@ use reth_db::{
 use reth_network_api::noop::NoopNetwork;
 use reth_node_ethereum::EthEvmConfig;
 use reth_primitives::{constants::ETHEREUM_BLOCK_GAS_LIMIT, MAINNET, U256};
-use reth_provider::{providers::BlockchainProvider, DatabaseProvider, ProviderFactory};
-use reth_revm::EvmProcessorFactory;
+use reth_provider::{
+    providers::BlockchainProvider, DatabaseProvider, ProviderFactory, StateProvider,
+};
+use reth_revm::{
+    database::StateProviderDatabase,
+    db::CacheDB,
+    primitives::{BlockEnv, CfgEnvWithHandlerCfg, EnvWithHandlerCfg, TransactTo, TxEnv},
+    EvmProcessorFactory,
+};
 use reth_rpc::{
     eth::{
         cache::{EthStateCache, EthStateCacheConfig},
         gas_oracle::{GasPriceOracle, GasPriceOracleConfig},
-        EthFilterConfig, FeeHistoryCache, FeeHistoryCacheConfig,
+        EthFilterConfig, EthTransactions, FeeHistoryCache, FeeHistoryCacheConfig,
     },
     DebugApi, EthApi, EthFilter, TraceApi,
 };
 use reth_rpc_api::EthApiServer;
-use reth_rpc_types::{Bundle, StateContext, TransactionInput};
+use reth_rpc_types::{BlockId, Bundle, StateContext, TransactionInput};
 use reth_tasks::{
     pool::{BlockingTaskGuard, BlockingTaskPool},
     TaskManager,
@@ -63,7 +70,7 @@ pub(crate) type RethDebug = DebugApi<RethClient, RethApi>;
 pub(crate) type RethDbProvider = DatabaseProvider<Tx<RO>>;
 
 pub struct RethDbApiClient {
-    reth_api: RethApi,
+    pub reth_api: RethApi,
 }
 
 impl RethDbApiClient {
@@ -75,6 +82,21 @@ impl RethDbApiClient {
 
     pub fn get_current_block(&self) -> eyre::Result<u64> {
         Ok(self.reth_api.block_number()?.to())
+    }
+
+    pub async fn get_evm_env_at(
+        &self,
+        block_number: u64,
+    ) -> eyre::Result<(CfgEnvWithHandlerCfg, BlockEnv, BlockId)> {
+        Ok(self.reth_api.evm_env_at(block_number.into()).await?)
+    }
+
+    pub fn cache_state_provider(
+        &self,
+        block_number: u64,
+    ) -> eyre::Result<StateProviderDatabase<Box<dyn StateProvider>>> {
+        let state_provider = self.reth_api.state_at_block_id(block_number.into())?;
+        Ok(StateProviderDatabase::new(state_provider))
     }
 
     pub async fn get_tick_spacing(
