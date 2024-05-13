@@ -37,7 +37,7 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
         .map(|p| {
             let this_handle = handle.clone();
             handle.clone().spawn_blocking(move || {
-                this_handle.block_on(PoolHandler::new(p, current_block, 1000))
+                this_handle.block_on(PoolHandler::new(p, current_block, 100))
             })
         })
         .collect::<FuturesUnordered<_>>();
