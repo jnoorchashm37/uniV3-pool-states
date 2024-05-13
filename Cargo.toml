@@ -1,0 +1,91 @@
+[package]
+name = "lvr-sim"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+db-interfaces = { git = "https://github.com/SorellaLabs/db-interfaces", features = [
+  "alloy-types",
+] }
+
+# clickhouse
+clickhouse = { git = "https://github.com/SorellaLabs/clickhouse.rs", branch = "master" }
+
+# reth
+reth-primitives = { git = "https://github.com/paradigmxyz/reth", package = "reth-primitives", rev = "ac29b4b" }
+reth-interfaces = { git = "https://github.com/paradigmxyz/reth", package = "reth-interfaces", rev = "ac29b4b" }
+reth-provider = { git = "https://github.com/paradigmxyz/reth", package = "reth-provider", rev = "ac29b4b" }
+reth-rpc = { git = "https://github.com/paradigmxyz/reth", package = "reth-rpc", rev = "ac29b4b" }
+reth-rpc-types = { git = "https://github.com/paradigmxyz/reth", package = "reth-rpc-types", rev = "ac29b4b" }
+reth-revm = { git = "https://github.com/paradigmxyz/reth", package = "reth-revm", rev = "ac29b4b" }
+reth-rpc-api = { git = "https://github.com/paradigmxyz/reth", package = "reth-rpc-api", rev = "ac29b4b" }
+reth-db = { git = "https://github.com/paradigmxyz/reth", package = "reth-db", rev = "ac29b4b" }
+reth-blockchain-tree = { git = "https://github.com/paradigmxyz/reth", package = "reth-blockchain-tree", rev = "ac29b4b" }
+reth-beacon-consensus = { git = "https://github.com/paradigmxyz/reth", package = "reth-beacon-consensus", rev = "ac29b4b" }
+reth-transaction-pool = { git = "https://github.com/paradigmxyz/reth", package = "reth-transaction-pool", rev = "ac29b4b" }
+reth-tasks = { git = "https://github.com/paradigmxyz/reth", package = "reth-tasks", rev = "ac29b4b" }
+reth-ipc = { git = "https://github.com/paradigmxyz/reth", package = "reth-ipc", rev = "ac29b4b" }
+reth-network-api = { git = "https://github.com/paradigmxyz/reth", package = "reth-network-api", rev = "ac29b4b" }
+reth-eth-wire = { git = "https://github.com/paradigmxyz/reth", package = "reth-eth-wire", rev = "ac29b4b" }
+reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth", package = "reth-node-ethereum", rev = "ac29b4b" }
+
+# alloy
+alloy-provider = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
+alloy-transport-ipc = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
+alloy-transport-http = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
+alloy-pubsub = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
+alloy-rpc-client = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
+alloy-transport = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
+alloy-json-rpc = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
+alloy-rpc-types = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695", features = [
+  "jsonrpsee-types",
+] }
+alloy-sol-types = { version = "0.7.0", features = ["json"] }
+alloy-sol-macro = { version = "0.7.0", features = ["json"] }
+alloy-primitives = { version = "0.7.0", features = ["rlp"] }
+
+# binance
+binance = { git = "https://github.com/wisespace-io/binance-rs.git" }
+
+
+# error handling
+thiserror = "1.0.44"
+jsonrpsee = { version = "0.20", features = ["server", "macros"] }
+eyre = "0.6.5"
+
+# serde
+serde = "1.0"
+serde_json = "1.0"
+serde_with = "3.7"
+
+# http(s)
+reqwest = "0.12.2"
+
+# async
+async-trait = "0.1.73"
+tokio = { version = "1.28.2", features = ["full"] }
+futures-util = "0.3.21"
+futures = "0.3.28"
+tokio-tungstenite = "0.20.1"
+tokio-stream = "0.1.14"
+
+# cli
+clap = { version = "4", features = ["derive"] }
+
+# misc
+chrono = "0.4.26"
+dotenv = "0.15.0"
+hex-literal = "0.4.1"
+url = "2.4.1"
+serial_test = "2.0.0"
+sha2 = "0.10.8"
+strum = "0.25"
+strum_macros = "0.25"
+rand = "0.8.5"
+paste = "1.0.14"
+itertools = "0.11.0"
+indexmap = "2.2.3"
+dyn-clone = "1.0.16"
+pin-project = "1.1.4"
+rayon = "1.10.0"
