@@ -14,7 +14,7 @@ use reth_provider::StateProvider;
 use reth_revm::{
     database::StateProviderDatabase,
     db::CacheDB,
-    primitives::{EnvWithHandlerCfg, TransactTo, TxEnv},
+    primitives::{BlockEnv, EnvWithHandlerCfg, TransactTo, TxEnv},
 };
 use reth_rpc::eth::EthTransactions;
 use std::{ops::Range, sync::Arc};
@@ -87,6 +87,7 @@ pub struct PoolDBInner {
     pub node: Arc<RethDbApiClient>,
     pub state_db: Arc<StateProviderDatabase<Box<dyn StateProvider>>>,
     pub env: EnvWithHandlerCfg,
+    pub block_env: BlockEnv,
 }
 
 impl PoolDBInner {
@@ -97,7 +98,12 @@ impl PoolDBInner {
         Ok(Self {
             node,
             state_db: Arc::new(state_db),
-            env: EnvWithHandlerCfg::new_with_cfg_env(cfg_env, block_env, Default::default()),
+            env: EnvWithHandlerCfg::new_with_cfg_env(
+                cfg_env,
+                block_env.clone(),
+                Default::default(),
+            ),
+            block_env,
         })
     }
 
@@ -141,7 +147,7 @@ impl PoolDBInner {
             transact_to: TransactTo::Call(to),
             data: call.abi_encode().into(),
             chain_id: Some(1),
-            gas_limit: self.node.reth_api.gas_cap(),
+            gas_limit: self.block_env.gas_limit.min(U256::from(u64::MAX)).to(),
             ..Default::default()
         };
 
