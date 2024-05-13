@@ -26,6 +26,8 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
         format!("uni-v3={}", Level::DEBUG).parse()?,
     )]);
 
+    init_threadpool();
+
     let reth_db_path = std::env::var("RETH_DB_PATH").expect("no 'RETH_DB_PATH' in .env");
     let node = Arc::new(RethDbApiClient::new(&reth_db_path, handle.clone()).await?);
 
