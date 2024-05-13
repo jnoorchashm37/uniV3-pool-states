@@ -68,7 +68,7 @@ pub struct RethDbApiClient {
 
 impl RethDbApiClient {
     pub async fn new(db_path: &str, handle: Handle) -> eyre::Result<Self> {
-        let (reth_api, _, _, _, db) = init(Path::new(db_path), handle)?;
+        let (reth_api, _, _, _, _) = init(Path::new(db_path), handle)?;
 
         Ok(Self { reth_api })
     }
