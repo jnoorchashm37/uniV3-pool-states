@@ -35,7 +35,9 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
 
     let pools = Box::leak(Box::new(get_initial_pools(&node, db).await?));
 
-    let handler = PoolHandler::new(node, db, pools, 19800000, current_block, handle.clone(), 10);
+    //  let handler = PoolHandler::new(node, db, pools, 19800000, current_block, handle.clone(), 10);
+
+    let handler = PoolHandler::new(node, db, pools, 12369821, 12369825, handle.clone(), 10);
 
     handler.await;
 
