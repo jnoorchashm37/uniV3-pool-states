@@ -72,7 +72,11 @@ impl<'a> PoolCaller<'a> {
 
         info!(target: "uni-v3", "completed block {} for {} pools with {} bips", self.block_number, pools.len(), state.len());
 
-        self.db.insert_many::<UniV3PoolState>(&state).await?;
+        if !state.is_empty() {
+            println!("{:?}", state[0])
+        }
+
+        //self.db.insert_many::<UniV3PoolState>(&state).await?;
 
         Ok(())
     }
