@@ -3,7 +3,6 @@ use db::{spawn_clickhouse_db, UniswapV3Tables};
 use db_interfaces::clickhouse::client::ClickhouseClient;
 use db_interfaces::Database;
 use futures::future::join_all;
-use futures::stream::FuturesUnordered;
 use handler::PoolHandler;
 use node::RethDbApiClient;
 use std::str::FromStr;

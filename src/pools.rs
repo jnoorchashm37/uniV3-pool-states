@@ -141,6 +141,7 @@ impl PoolDBInner {
             transact_to: TransactTo::Call(to),
             data: call.abi_encode().into(),
             chain_id: Some(1),
+            gas_limit: self.node.reth_api.gas_cap(),
             ..Default::default()
         };
 
