@@ -51,6 +51,10 @@ impl TickFetcher {
             .await
             .map_err(|e| (self.current_block, e))?;
 
+        if state.is_empty() {
+            return Ok(());
+        }
+
         self.insert_values(state)
             .await
             .map_err(|e| (self.current_block, e))?;
@@ -66,7 +70,15 @@ impl TickFetcher {
 
     async fn get_state_from_ticks(&self) -> eyre::Result<Vec<PoolState>> {
         let bitmaps = self.get_bitmaps().await?;
+        if bitmaps.is_empty() {
+            return Ok(Vec::new());
+        }
+
         let ticks = self.get_ticks(bitmaps)?;
+
+        if ticks.is_empty() {
+            return Ok(Vec::new());
+        }
 
         let states = self
             .node
@@ -107,10 +119,15 @@ impl TickFetcher {
     }
 
     async fn get_bitmaps(&self) -> eyre::Result<Vec<(i16, U256)>> {
-        Ok(self
-            .node
-            .get_tick_bitmaps(self.pool, self.min_word..self.max_word, self.current_block)
-            .await?)
+        let range = self.min_word..self.max_word;
+        if range.is_empty() {
+            Ok(Vec::new())
+        } else {
+            Ok(self
+                .node
+                .get_tick_bitmaps(self.pool, range, self.current_block)
+                .await?)
+        }
     }
 }
 
