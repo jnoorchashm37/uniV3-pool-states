@@ -52,36 +52,46 @@ impl Future for PoolHandler {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
 
-        while this.futs.len() < this.max_tasks && this.end_block >= this.current_block {
-            let caller =
-                PoolCaller::new(this.node.clone(), this.db, this.pools, this.current_block);
-            let this_handle = this.handle.clone();
-            this.futs.push(
-                this.handle
-                    .clone()
-                    .spawn_blocking(move || this_handle.block_on(caller.execute_block())),
-            );
-            this.current_block += 1;
-        }
+        let mut work = 4096;
 
-        while let Poll::Ready(Some(val)) = this.futs.poll_next_unpin(cx) {
-            if let Ok(Err((b, e))) = val {
-                error!(target: "uni-v3", "failed to get block {b}, retrying - {:?}", e);
-                let caller = PoolCaller::new(this.node.clone(), this.db, this.pools, b);
+        loop {
+            // while this.futs.len() < this.max_tasks && this.end_block >= this.current_block {
+            if this.end_block >= this.current_block {
+                let caller =
+                    PoolCaller::new(this.node.clone(), this.db, this.pools, this.current_block);
                 let this_handle = this.handle.clone();
                 this.futs.push(
                     this.handle
                         .clone()
                         .spawn_blocking(move || this_handle.block_on(caller.execute_block())),
                 );
+                this.current_block += 1;
+            }
+
+            while let Poll::Ready(Some(val)) = this.futs.poll_next_unpin(cx) {
+                if let Ok(Err((b, e))) = val {
+                    error!(target: "uni-v3", "failed to get block {b}, retrying - {:?}", e);
+                    let caller = PoolCaller::new(this.node.clone(), this.db, this.pools, b);
+                    let this_handle = this.handle.clone();
+                    this.futs.push(
+                        this.handle
+                            .clone()
+                            .spawn_blocking(move || this_handle.block_on(caller.execute_block())),
+                    );
+                }
+            }
+
+            if this.futs.is_empty() && this.end_block <= this.current_block {
+                return Poll::Ready(());
+            }
+
+            work -= 1;
+            if work == 0 {
+                cx.waker().wake_by_ref();
+                break;
             }
         }
 
-        if this.futs.is_empty() && this.end_block <= this.current_block {
-            return Poll::Ready(());
-        }
-
-        cx.waker().wake_by_ref();
         Poll::Pending
     }
 }
