@@ -93,7 +93,8 @@ pub struct PoolDBInner {
 impl PoolDBInner {
     pub async fn new(node: Arc<RethDbApiClient>, block_number: u64) -> eyre::Result<Self> {
         let state_db = node.state_provider_db(block_number)?;
-        let (cfg_env, block_env, _) = node.get_evm_env_at(block_number).await?;
+        let (cfg_env, mut block_env, _) = node.get_evm_env_at(block_number).await?;
+        block_env.basefee = U256::MAX;
 
         Ok(Self {
             node,
@@ -153,7 +154,6 @@ impl PoolDBInner {
             data: call.abi_encode().into(),
             chain_id: Some(1),
             gas_limit: self.block_env.gas_limit.min(U256::from(u64::MAX)).to(),
-            gas_priority_fee: Some(U256::MAX),
             ..Default::default()
         };
 
