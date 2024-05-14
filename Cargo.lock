@@ -1689,7 +1689,6 @@ name = "db-interfaces"
 version = "0.1.0"
 source = "git+https://github.com/SorellaLabs/db-interfaces#f8c3e3d12a9ac7102c1346a0cb06c7e0e733572a"
 dependencies = [
- "alloy-primitives",
  "async-trait",
  "chrono",
  "clickhouse",

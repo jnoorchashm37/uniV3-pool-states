@@ -5,9 +5,7 @@ edition = "2021"
 
 [dependencies]
 
-db-interfaces = { git = "https://github.com/SorellaLabs/db-interfaces", features = [
-  "alloy-types",
-] }
+db-interfaces = { git = "https://github.com/SorellaLabs/db-interfaces" }
 
 # clickhouse
 clickhouse = { git = "https://github.com/SorellaLabs/clickhouse.rs", branch = "master" }
