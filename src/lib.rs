@@ -27,7 +27,7 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
 
     let current_block = node.get_current_block()?;
 
-    let db = spawn_clickhouse_db();
+    let db = Arc::new(spawn_clickhouse_db());
     info!(target: "uni-v3", "started clickhouse db connection");
 
     let (min_block, pools) = get_initial_pools(&db).await?;
