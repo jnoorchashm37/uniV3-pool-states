@@ -108,11 +108,17 @@ impl Future for BufferedClickhouse {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
 
+        let mut is_finished = false;
+
         if let Poll::Ready(inc) = this.rx.poll_recv(cx) {
             if let Some(vals) = inc {
                 this.queue.extend(vals);
             } else {
-                return Poll::Ready(());
+                if this.queue.is_empty() && this.inserting.is_empty() && this.fut.is_none() {
+                    return Poll::Ready(());
+                } else {
+                    is_finished = true;
+                }
             }
         }
 
@@ -131,7 +137,7 @@ impl Future for BufferedClickhouse {
                 this.fut = Some(f)
             }
         } else {
-            if this.queue.len() >= this.insert_size {
+            if this.queue.len() >= this.insert_size || is_finished {
                 this.inserting = this.queue.drain(..).collect_vec();
 
                 let db = this.db.clone();

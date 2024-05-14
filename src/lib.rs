@@ -38,13 +38,13 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
     info!(target: "uni-v3", "created buffered clickhouse connection");
 
     let this_handle = handle.clone();
-    handle
+    let buffered_db_handle = handle
         .clone()
         .spawn_blocking(move || this_handle.block_on(buffered_db));
 
     let handler = PoolHandler::new(
         node,
-        tx,
+        tx.clone(),
         Box::leak(Box::new(pools)),
         12369821,
         12369821,
@@ -52,6 +52,9 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
     );
 
     handler.await;
+
+    drop(tx);
+    buffered_db_handle.await?;
 
     Ok(())
 }
