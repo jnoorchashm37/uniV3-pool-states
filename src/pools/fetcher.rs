@@ -226,17 +226,21 @@ impl PoolDBInner {
             .map(|(_, t)| t)
             .collect::<HashSet<_>>();
 
+        if pool_txs.is_empty() {
+            return Ok(Vec::new());
+        }
+
         let pool_states = parent_block_txs
             .iter()
             .map(|transaction| {
                 let tx = tx_env_with_recovered(transaction);
-                println!("TX: {:?}", tx);
+                // println!("TX: {:?}", tx);
                 let env = EnvWithHandlerCfg::new_with_cfg_env(
                     self.cfg.clone(),
                     self.block_env.clone(),
                     tx,
                 );
-                println!("\n\nENV: {:?}\n\n\n\n", env);
+                // println!("\n\nENV: {:?}\n\n\n\n", env);
                 let (res, _) = self.node.reth_api.transact(&mut self.state_db, env)?;
                 self.state_db.commit(res.state);
 
