@@ -119,7 +119,7 @@ mod tests {
             .await
             .unwrap();
 
-        let pool_inner = PoolDBInner::new(Arc::new(node), 12369879).await.unwrap();
+        let mut pool_inner = PoolDBInner::new(Arc::new(node), 12369879).await.unwrap();
 
         let test_ticker = PoolTickFetcher::new(
             Address::from_str("0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8").unwrap(),
@@ -150,7 +150,6 @@ mod tests {
             },
             PoolState {
                 block_number: 12369879,
-
                 tx_hash: format!("{:?}", tx_hash).to_lowercase(),
                 pool_address: "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8".to_string(),
                 tick: -78240,
