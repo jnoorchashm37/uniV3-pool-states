@@ -46,8 +46,8 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
         node,
         tx.clone(),
         Box::leak(Box::new(pools)),
-        12368243,
-        12370244,
+        min_block,
+        current_block,
         handle.clone(),
     );
 
