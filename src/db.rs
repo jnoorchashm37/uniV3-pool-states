@@ -107,6 +107,8 @@ impl Future for BufferedClickhouse {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
 
+        println!("POLLING");
+
         if let Poll::Ready(inc) = this.rx.poll_recv(cx) {
             if let Some(vals) = inc {
                 this.queue.extend(vals);
