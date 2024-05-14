@@ -11,6 +11,10 @@ use tokio::runtime::Handle;
 use tokio::task::JoinHandle;
 use tracing::error;
 
+/// reth sets it's mdbx enviroment's max readers to 32000
+/// we set ours slightly lower to account for errored blocks
+const MDBX_READERS_LIMIT: usize = 30_000;
+
 pub struct PoolHandler {
     pub node: Arc<RethDbApiClient>,
     pub db: &'static ClickhouseClient<UniswapV3Tables>,
@@ -51,7 +55,7 @@ impl Future for PoolHandler {
         let mut work = 4096;
 
         loop {
-            if this.end_block >= this.current_block {
+            if this.end_block >= this.current_block && this.futs.len() <= MDBX_READERS_LIMIT {
                 let caller =
                     PoolCaller::new(this.node.clone(), this.db, this.pools, this.current_block);
                 //let this_handle = this.handle.clone();
