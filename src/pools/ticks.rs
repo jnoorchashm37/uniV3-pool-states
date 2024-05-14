@@ -143,7 +143,7 @@ mod tests {
                 liquidity_net: 80059851033970806503,
                 fee_growth_outside_0_x128: U256::from(0u64),
                 fee_growth_outside_1_x128: U256::from(0u64),
-                tick_cumulative_outside: 0,
+                tick_cumulative_outside: 1620159368,
                 seconds_per_liquidity_outside_x128: U256::from(0u64),
                 seconds_outside: 0,
                 initialized: true,
