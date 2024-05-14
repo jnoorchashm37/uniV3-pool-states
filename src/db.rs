@@ -32,7 +32,7 @@ pub fn spawn_clickhouse_db() -> ClickhouseClient<UniswapV3Tables> {
     let user = std::env::var("CLICKHOUSE_USER").expect("CLICKHOUSE_USER not found in .env");
     let pass = std::env::var("CLICKHOUSE_PASS").expect("CLICKHOUSE_PASS not found in .env");
 
-    let config = ClickhouseConfig::new(user, pass, url, false, None);
+    let config = ClickhouseConfig::new(user, pass, url, true, None);
 
     config.build()
 }
