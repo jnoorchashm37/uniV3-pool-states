@@ -1,5 +1,5 @@
 use db::{get_initial_pools, spawn_clickhouse_db};
-use node::RethDbApiClient;
+use node::EthNodeApi;
 use pools::PoolHandler;
 use std::sync::{Arc, OnceLock};
 use tokio::{runtime::Handle, sync::mpsc::unbounded_channel};
@@ -22,7 +22,7 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
     info!(target: "uni-v3", "initialized rayon threadpool");
 
     let reth_db_path = std::env::var("RETH_DB_PATH").expect("no 'RETH_DB_PATH' in .env");
-    let node = Arc::new(RethDbApiClient::new(&reth_db_path, handle.clone()).await?);
+    let node = Arc::new(EthNodeApi::new(&reth_db_path, handle.clone())?);
     info!(target: "uni-v3", "spawned eth node connection");
 
     let current_block = node.get_current_block()?;

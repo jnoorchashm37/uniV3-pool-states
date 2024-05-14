@@ -1,6 +1,6 @@
+use alloy_primitives::TxHash;
 use alloy_primitives::{Address, U256};
 use clickhouse::Row;
-use reth_primitives::TxHash;
 use serde::{Deserialize, Serialize};
 
 use crate::pools::UniswapV3;

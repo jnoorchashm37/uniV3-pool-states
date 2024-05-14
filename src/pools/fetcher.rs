@@ -1,11 +1,10 @@
-use crate::{execute_on_threadpool, node::RethDbApiClient};
+use crate::{execute_on_threadpool, node::EthNodeApi};
 use alloy_primitives::Address;
 use alloy_sol_types::SolCall;
 
+use alloy_primitives::{TxHash, U256};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use reth_primitives::{
-    revm::env::tx_env_with_recovered, TransactionSignedEcRecovered, TxHash, U256,
-};
+use reth_primitives::{revm::env::tx_env_with_recovered, TransactionSignedEcRecovered};
 use reth_provider::StateProvider;
 use reth_revm::{
     database::StateProviderDatabase,
@@ -21,7 +20,7 @@ use tracing::{debug, info};
 use super::{PoolState, PoolTickFetcher, UniswapV3};
 
 pub struct PoolCaller<'a> {
-    pub node: Arc<RethDbApiClient>,
+    pub node: Arc<EthNodeApi>,
     pub db_tx: UnboundedSender<Vec<PoolState>>,
     pub pools: Vec<&'a PoolTickFetcher>,
     pub block_number: u64,
@@ -29,7 +28,7 @@ pub struct PoolCaller<'a> {
 
 impl<'a> PoolCaller<'a> {
     pub fn new(
-        node: Arc<RethDbApiClient>,
+        node: Arc<EthNodeApi>,
         db_tx: UnboundedSender<Vec<PoolState>>,
         pools: &'a [PoolTickFetcher],
         block_number: u64,
@@ -47,9 +46,7 @@ impl<'a> PoolCaller<'a> {
     }
 
     pub async fn execute_block(self) -> Result<usize, (u64, eyre::ErrReport)> {
-        self.run_block()
-            .await
-            .map_err(|e| (self.block_number, e))?;
+        self.run_block().await.map_err(|e| (self.block_number, e))?;
 
         Ok(self.pools.len())
     }
@@ -129,7 +126,7 @@ impl<'a> PoolCaller<'a> {
 
 #[derive(Clone)]
 pub struct PoolDBInner {
-    pub node: Arc<RethDbApiClient>,
+    pub node: Arc<EthNodeApi>,
     pub state_db: CacheDB<Arc<StateProviderDatabase<Box<dyn StateProvider>>>>,
     pub cfg: CfgEnvWithHandlerCfg,
     pub env: EnvWithHandlerCfg,
@@ -137,7 +134,7 @@ pub struct PoolDBInner {
 }
 
 impl PoolDBInner {
-    pub async fn new(node: Arc<RethDbApiClient>, block_number: u64) -> eyre::Result<Self> {
+    pub async fn new(node: Arc<EthNodeApi>, block_number: u64) -> eyre::Result<Self> {
         let parent_block = block_number - 1;
         let state_db = node.state_provider_db(parent_block)?;
         let (cfg_env, mut block_env, _) = node.get_evm_env_at(block_number).await?;
@@ -204,7 +201,11 @@ impl PoolDBInner {
             ..Default::default()
         };
 
-        let (res, _) = self.node.reth_api.transact(&mut self.state_db, env)?;
+        let (res, _) = self
+            .node
+            .reth_api
+            .eth_api
+            .transact(&mut self.state_db, env)?;
 
         match res.result {
             reth_revm::primitives::ExecutionResult::Success {
@@ -247,7 +248,11 @@ impl PoolDBInner {
                     tx,
                 );
 
-                let (res, _) = self.node.reth_api.transact(&mut self.state_db, env)?;
+                let (res, _) = self
+                    .node
+                    .reth_api
+                    .eth_api
+                    .transact(&mut self.state_db, env)?;
                 self.state_db.commit(res.state);
 
                 if let Some(pool_tx) = pool_txs.get(&transaction.hash) {

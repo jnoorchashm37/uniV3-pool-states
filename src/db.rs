@@ -5,13 +5,13 @@ use std::{
     task::{Context, Poll},
 };
 
+use alloy_primitives::Address;
 use db_interfaces::{
     clickhouse::{client::ClickhouseClient, config::ClickhouseConfig},
     clickhouse_dbms, remote_clickhouse_table, Database,
 };
 use futures::{Future, FutureExt};
 use itertools::Itertools;
-use reth_primitives::Address;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::{error, info};
 

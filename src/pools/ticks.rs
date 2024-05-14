@@ -1,6 +1,6 @@
 use alloy_primitives::Address;
+use alloy_primitives::TxHash;
 use alloy_primitives::U256;
-use reth_primitives::TxHash;
 use tracing::debug;
 
 use super::PoolDBInner;
@@ -108,7 +108,7 @@ impl PoolTickFetcher {
 mod tests {
     use std::{str::FromStr, sync::Arc};
 
-    use crate::node::RethDbApiClient;
+    use crate::node::EthNodeApi;
 
     use super::*;
 
@@ -117,9 +117,7 @@ mod tests {
         dotenv::dotenv().ok();
 
         let reth_db_path = std::env::var("RETH_DB_PATH").expect("no 'RETH_DB_PATH' in .env");
-        let node = RethDbApiClient::new(&reth_db_path, tokio::runtime::Handle::current())
-            .await
-            .unwrap();
+        let node = EthNodeApi::new(&reth_db_path, tokio::runtime::Handle::current()).unwrap();
 
         let mut pool_inner = PoolDBInner::new(Arc::new(node), 12369879).await.unwrap();
 

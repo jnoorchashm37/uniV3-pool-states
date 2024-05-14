@@ -1,4 +1,4 @@
-use crate::node::RethDbApiClient;
+use crate::node::EthNodeApi;
 use crate::pools::{PoolCaller, PoolState, PoolTickFetcher};
 use futures::StreamExt;
 use futures::{stream::FuturesUnordered, Future};
@@ -15,7 +15,7 @@ use tracing::error;
 const MAX_TASKS: usize = 25_000;
 
 pub struct PoolHandler {
-    pub node: Arc<RethDbApiClient>,
+    pub node: Arc<EthNodeApi>,
     pub db_tx: UnboundedSender<Vec<PoolState>>,
     pub pools: &'static [PoolTickFetcher],
     pub futs: FuturesUnordered<JoinHandle<Result<usize, (u64, eyre::ErrReport)>>>,
@@ -27,7 +27,7 @@ pub struct PoolHandler {
 
 impl PoolHandler {
     pub fn new(
-        node: Arc<RethDbApiClient>,
+        node: Arc<EthNodeApi>,
         db_tx: UnboundedSender<Vec<PoolState>>,
         pools: &'static [PoolTickFetcher],
         start_block: u64,
