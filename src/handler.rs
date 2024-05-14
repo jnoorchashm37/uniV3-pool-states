@@ -19,7 +19,6 @@ pub struct PoolHandler {
     pub current_block: u64,
     pub end_block: u64,
     pub handle: Handle,
-    pub max_tasks: usize,
 }
 
 impl PoolHandler {
@@ -30,7 +29,6 @@ impl PoolHandler {
         start_block: u64,
         end_block: u64,
         handle: Handle,
-        max_tasks: usize,
     ) -> Self {
         Self {
             node,
@@ -40,7 +38,6 @@ impl PoolHandler {
             current_block: start_block,
             end_block,
             handle,
-            max_tasks,
         }
     }
 }
@@ -54,7 +51,6 @@ impl Future for PoolHandler {
         let mut work = 4096;
 
         loop {
-            // while this.futs.len() < this.max_tasks && this.end_block >= this.current_block {
             if this.end_block >= this.current_block {
                 let caller =
                     PoolCaller::new(this.node.clone(), this.db, this.pools, this.current_block);

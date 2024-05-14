@@ -112,22 +112,22 @@ impl TickFetcher {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use std::sync::Arc;
 
-    use crate::db::spawn_clickhouse_db;
+    use crate::node::RethDbApiClient;
 
     use super::*;
 
     #[tokio::test]
     async fn test_map() {
-        // dotenv::dotenv().ok();
+        dotenv::dotenv().ok();
 
-        // let reth_db_path = std::env::var("RETH_DB_PATH").expect("no 'RETH_DB_PATH' in .env");
-        // let node = RethDbApiClient::new(&reth_db_path, tokio::runtime::Handle::current())
-        //     .await
-        //     .unwrap();
+        let reth_db_path = std::env::var("RETH_DB_PATH").expect("no 'RETH_DB_PATH' in .env");
+        let node = RethDbApiClient::new(&reth_db_path, tokio::runtime::Handle::current())
+            .await
+            .unwrap();
 
-        // let db = spawn_clickhouse_db();
+        let pool_inner = PoolDBInner::new(Arc::new(node), 19000000).await.unwrap();
 
         // let fetcher = TickFetcher::new(
         //     Arc::new(node),
