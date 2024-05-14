@@ -125,8 +125,7 @@ impl PoolDBInner {
     pub async fn new(node: Arc<RethDbApiClient>, block_number: u64) -> eyre::Result<Self> {
         let parent_block = block_number - 1;
         let state_db = node.state_provider_db(parent_block)?;
-        let (cfg_env, mut block_env, _) = node.get_evm_env_at(parent_block).await?;
-        block_env.basefee = U256::ZERO;
+        let (cfg_env, block_env, _) = node.get_evm_env_at(block_number).await?;
 
         Ok(Self {
             node,
