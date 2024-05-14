@@ -102,7 +102,6 @@ impl PoolTickFetcher {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use std::{str::FromStr, sync::Arc};
@@ -218,5 +217,3 @@ mod tests {
         assert_eq!(calculated, expected);
     }
 }
-
-*/
