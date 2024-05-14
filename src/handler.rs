@@ -12,7 +12,7 @@ use tracing::error;
 
 /// reth sets it's mdbx enviroment's max readers to 32000
 /// we set ours slightly lower to account for errored blocks
-const MDBX_READERS_LIMIT: usize = 20_000;
+const MDBX_READERS_LIMIT: usize = 10_000;
 
 pub struct PoolHandler {
     pub node: Arc<RethDbApiClient>,
