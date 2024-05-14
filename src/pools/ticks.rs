@@ -15,13 +15,10 @@ pub struct TickFetcher {
 
 impl TickFetcher {
     pub fn new(pool: Address, earliest_block: u64) -> Self {
-        let min_word = (-887272_i32 >> 8) as i16;
-        let max_word = (887272_i32 >> 8) as i16;
-
         Self {
             pool,
-            min_word,
-            max_word,
+            min_word: (-887272_i32 >> 8) as i16,
+            max_word: (887272_i32 >> 8) as i16,
             earliest_block,
         }
     }
@@ -112,7 +109,7 @@ impl TickFetcher {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::{str::FromStr, sync::Arc};
 
     use crate::node::RethDbApiClient;
 
@@ -129,19 +126,99 @@ mod tests {
 
         let pool_inner = PoolDBInner::new(Arc::new(node), 19000000).await.unwrap();
 
-        // let fetcher = TickFetcher::new(
-        //     Arc::new(node),
-        //     Arc::new(db),
-        //     Address::from_str("0xCBCdF9626bC03E24f779434178A73a0B4bad62eD").unwrap(),
-        //     19858960,
-        // )
-        // .await
-        // .unwrap();
+        let test_ticker = TickFetcher::new(
+            Address::from_str("0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8").unwrap(),
+            12369854,
+        );
 
-        // let ticks = fetcher.get_state_from_ticks().await.unwrap();
+        let calculated = test_ticker.execute_block(pool_inner, 12370244).unwrap();
+        let expected = vec![
+            PoolState {
+                block_number: 12370244,
+                pool_address: "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8".to_string(),
+                tick: -84120,
+                tick_spacing: 60,
+                liquidity_gross: 121672637676928310822,
+                liquidity_net: 121672637676928310822,
+                fee_growth_outside_0_x128: U256::from(0u64),
+                fee_growth_outside_1_x128: U256::from(0u64),
+                tick_cumulative_outside: 0,
+                seconds_per_liquidity_outside_x128: U256::from(0u64),
+                seconds_outside: 1620159368,
+                initialized: true,
+            },
+            PoolState {
+                block_number: 12370244,
+                pool_address: "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8".to_string(),
+                tick: -82920,
+                tick_spacing: 60,
+                liquidity_gross: 7079623107842667994,
+                liquidity_net: 7079623107842667994,
+                fee_growth_outside_0_x128: U256::from(0u64),
+                fee_growth_outside_1_x128: U256::from(127510492160377860903322733723813u128),
+                tick_cumulative_outside: -167630257,
+                seconds_per_liquidity_outside_x128: U256::from(8186109579676388573702u128),
+                seconds_outside: 1620161431,
+                initialized: true,
+            },
+            PoolState {
+                block_number: 12370244,
+                pool_address: "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8".to_string(),
+                tick: -81900,
+                tick_spacing: 60,
+                liquidity_gross: 100961002448877659420,
+                liquidity_net: 100961002448877659420,
+                fee_growth_outside_0_x128: U256::from(0u64),
+                fee_growth_outside_1_x128: U256::from(127510492160377860903322733723813u128),
+                tick_cumulative_outside: -151464691,
+                seconds_per_liquidity_outside_x128: U256::from(7881949835537984141608u128),
+                seconds_outside: 1620161232,
+                initialized: true,
+            },
+            PoolState {
+                block_number: 12370244,
+                pool_address: "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8".to_string(),
+                tick: -80040,
+                tick_spacing: 60,
+                liquidity_gross: 100961002448877659420,
+                liquidity_net: -100961002448877659420,
+                fee_growth_outside_0_x128: U256::from(0u64),
+                fee_growth_outside_1_x128: U256::from(0u64),
+                tick_cumulative_outside: 0,
+                seconds_per_liquidity_outside_x128: U256::from(0u64),
+                seconds_outside: 0,
+                initialized: true,
+            },
+            PoolState {
+                block_number: 12370244,
+                pool_address: "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8".to_string(),
+                tick: -79560,
+                tick_spacing: 60,
+                liquidity_gross: 7079623107842667994,
+                liquidity_net: -7079623107842667994,
+                fee_growth_outside_0_x128: U256::from(0u64),
+                fee_growth_outside_1_x128: U256::from(0u64),
+                tick_cumulative_outside: 0,
+                seconds_per_liquidity_outside_x128: U256::from(0u64),
+                seconds_outside: 0,
+                initialized: true,
+            },
+            PoolState {
+                block_number: 12370244,
+                pool_address: "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8".to_string(),
+                tick: -78240,
+                tick_spacing: 60,
+                liquidity_gross: 121672637676928310822,
+                liquidity_net: -121672637676928310822,
+                fee_growth_outside_0_x128: U256::from(0u64),
+                fee_growth_outside_1_x128: U256::from(0u64),
+                tick_cumulative_outside: 0,
+                seconds_per_liquidity_outside_x128: U256::from(0u64),
+                seconds_outside: 0,
+                initialized: true,
+            },
+        ];
 
-        // for t in ticks {
-        //     println!("{:?}", t);
-        // }
+        assert_eq!(calculated, expected);
     }
 }

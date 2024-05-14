@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::pools::UniswapV3;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Row)]
+#[derive(Debug, Clone, Serialize, Deserialize, Row, PartialEq)]
 pub struct PoolState {
     pub block_number: u64,
     pub pool_address: String,
