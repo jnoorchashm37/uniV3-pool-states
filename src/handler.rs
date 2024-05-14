@@ -66,7 +66,7 @@ impl Future for PoolHandler {
                 this.current_block += 1;
             }
 
-            if let Poll::Ready(Some(val)) = this.futs.poll_next_unpin(cx) {
+            while let Poll::Ready(Some(val)) = this.futs.poll_next_unpin(cx) {
                 if let Ok(Err((b, e))) = val {
                     error!(target: "uni-v3", "failed to get block {b}, retrying - {:?}", e);
                     let caller =
