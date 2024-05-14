@@ -1,7 +1,6 @@
 use crate::db::UniswapV3Tables;
 use crate::node::RethDbApiClient;
-use crate::pools::PoolCaller;
-use crate::ticks::TickFetcher;
+use crate::pools::{PoolCaller, TickFetcher};
 use db_interfaces::clickhouse::client::ClickhouseClient;
 use futures::StreamExt;
 use futures::{stream::FuturesUnordered, Future};

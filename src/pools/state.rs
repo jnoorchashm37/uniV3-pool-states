@@ -2,13 +2,14 @@ use alloy_primitives::{Address, U256};
 use clickhouse::Row;
 use serde::{Deserialize, Serialize};
 
-use crate::contracts::UniswapV3;
+use crate::pools::UniswapV3;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Row)]
 pub struct PoolState {
     pub block_number: u64,
     pub pool_address: String,
     pub tick: i32,
+    pub tick_spacing: i32,
     pub liquidity_gross: u128,
     pub liquidity_net: i128,
     #[serde(with = "u256")]
@@ -28,11 +29,13 @@ impl PoolState {
         address: Address,
         tick: i32,
         block_number: u64,
+        tick_spacing: i32,
     ) -> Self {
         Self {
             block_number,
             pool_address: format!("{:?}", address).to_lowercase(),
             tick,
+            tick_spacing,
             liquidity_gross: tick_return.liquidityGross,
             liquidity_net: tick_return.liquidityNet,
             fee_growth_outside_0_x128: tick_return.feeGrowthOutside0X128,

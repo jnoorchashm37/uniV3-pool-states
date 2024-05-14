@@ -2,7 +2,7 @@ use db_interfaces::{
     clickhouse::client::ClickhouseClient, clickhouse_dbms, remote_clickhouse_table,
 };
 
-use crate::state::PoolState;
+use crate::pools::PoolState;
 
 clickhouse_dbms!(UniswapV3Tables, [UniV3PoolState]);
 
@@ -11,7 +11,7 @@ remote_clickhouse_table!(
     "eth_analytics",
     UniV3PoolState,
     PoolState,
-    "src/sql/"
+    "src/pools/sql/"
 );
 
 pub fn spawn_clickhouse_db() -> ClickhouseClient<UniswapV3Tables> {

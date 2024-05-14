@@ -1,37 +1,29 @@
-use crate::node::RethDbApiClient;
-use crate::pools::PoolDBInner;
-use crate::state::PoolState;
 use alloy_primitives::Address;
 use alloy_primitives::U256;
 use tracing::debug;
+
+use super::PoolDBInner;
+use super::PoolState;
 
 #[derive(Clone)]
 pub struct TickFetcher {
     pub pool: Address,
     pub min_word: i16,
     pub max_word: i16,
-    pub tick_spacing: i32,
     pub earliest_block: u64,
 }
 
 impl TickFetcher {
-    pub async fn new(
-        node: &RethDbApiClient,
-        pool: Address,
-        earliest_block: u64,
-    ) -> eyre::Result<Self> {
-        let tick_spacing = node.get_tick_spacing(pool, None).await?;
-
+    pub fn new(pool: Address, earliest_block: u64) -> Self {
         let min_word = (-887272_i32 >> 8) as i16;
         let max_word = (887272_i32 >> 8) as i16;
 
-        Ok(Self {
+        Self {
             pool,
             min_word,
             max_word,
-            tick_spacing,
             earliest_block,
-        })
+        }
     }
 
     pub fn execute_block(
@@ -60,7 +52,8 @@ impl TickFetcher {
             return Ok(Vec::new());
         }
 
-        let ticks = self.get_ticks(bitmaps)?;
+        let tick_spacing = inner.get_tick_spacing(self.pool)?;
+        let ticks = self.get_ticks(bitmaps, tick_spacing)?;
 
         if ticks.is_empty() {
             return Ok(Vec::new());
@@ -71,12 +64,18 @@ impl TickFetcher {
         Ok(states
             .into_iter()
             .map(|(tick, state)| {
-                PoolState::new_with_block_and_address(state, self.pool, tick, block_number)
+                PoolState::new_with_block_and_address(
+                    state,
+                    self.pool,
+                    tick,
+                    block_number,
+                    tick_spacing,
+                )
             })
             .collect())
     }
 
-    fn get_ticks(&self, bitmaps: Vec<(i16, U256)>) -> eyre::Result<Vec<i32>> {
+    fn get_ticks(&self, bitmaps: Vec<(i16, U256)>, tick_spacing: i32) -> eyre::Result<Vec<i32>> {
         let vals = bitmaps
             .into_iter()
             .flat_map(|(idx, map)| {
@@ -85,7 +84,7 @@ impl TickFetcher {
                         .into_iter()
                         .filter_map(|i| {
                             if (map & (U256::from(1u8) << i)) != U256::ZERO {
-                                let tick_index = (idx as i32 * 256 + i) * self.tick_spacing;
+                                let tick_index = (idx as i32 * 256 + i) * tick_spacing;
                                 Some(tick_index)
                             } else {
                                 None

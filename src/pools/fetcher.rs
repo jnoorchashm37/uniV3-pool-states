@@ -1,9 +1,7 @@
 use crate::{
-    contracts::UniswapV3,
     db::{UniV3PoolState, UniswapV3Tables},
     execute_on_threadpool,
     node::RethDbApiClient,
-    ticks::TickFetcher,
 };
 use alloy_primitives::Address;
 use alloy_sol_types::SolCall;
@@ -19,6 +17,8 @@ use reth_revm::{
 use reth_rpc::eth::EthTransactions;
 use std::{ops::Range, sync::Arc};
 use tracing::info;
+
+use super::{TickFetcher, UniswapV3};
 
 pub struct PoolCaller<'a> {
     pub node: Arc<RethDbApiClient>,
@@ -72,10 +72,6 @@ impl<'a> PoolCaller<'a> {
 
         info!(target: "uni-v3", "completed block {} for {} pools with {} total ticks", self.block_number, pools.len(), state.len());
 
-        // if !state.is_empty() {
-        //     println!("{:?}", state[0])
-        // }
-
         self.db.insert_many::<UniV3PoolState>(&state).await?;
 
         Ok(())
@@ -92,7 +88,7 @@ pub struct PoolDBInner {
 
 impl PoolDBInner {
     pub async fn new(node: Arc<RethDbApiClient>, block_number: u64) -> eyre::Result<Self> {
-        let state_db = node.cache_state_provider(block_number)?;
+        let state_db = node.state_provider_db(block_number)?;
         let (cfg_env, block_env, _) = node.get_evm_env_at(block_number).await?;
 
         Ok(Self {
@@ -139,6 +135,11 @@ impl PoolDBInner {
                 Ok((word, self.transact(call, to)?._0))
             })
             .collect::<eyre::Result<Vec<_>>>()
+    }
+
+    pub fn get_tick_spacing(&self, to: Address) -> eyre::Result<i32> {
+        let request = UniswapV3::tickSpacingCall {};
+        Ok(self.transact(request, to)?._0)
     }
 
     fn transact<C: SolCall>(&self, call: C, to: Address) -> eyre::Result<C::Return> {

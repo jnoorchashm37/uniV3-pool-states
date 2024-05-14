@@ -2,23 +2,19 @@ use alloy_primitives::Address;
 use db::{spawn_clickhouse_db, UniswapV3Tables};
 use db_interfaces::clickhouse::client::ClickhouseClient;
 use db_interfaces::Database;
-use futures::future::join_all;
 use handler::PoolHandler;
 use node::RethDbApiClient;
+use pools::TickFetcher;
 use std::str::FromStr;
 use std::sync::{Arc, OnceLock};
-use ticks::TickFetcher;
 use tokio::runtime::Handle;
 use tracing::Level;
 
 pub mod aux;
-pub mod contracts;
 pub mod db;
 pub mod handler;
 pub mod node;
 pub mod pools;
-pub mod state;
-pub mod ticks;
 
 pub async fn run(handle: Handle) -> eyre::Result<()> {
     aux::init(vec![aux::stdout(
@@ -34,7 +30,7 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
 
     let current_block = node.get_current_block()?;
 
-    let (min_block, pools) = get_initial_pools(&node, db).await?;
+    let (min_block, pools) = get_initial_pools(db).await?;
 
     let handler = PoolHandler::new(
         node,
@@ -54,7 +50,6 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
 }
 
 async fn get_initial_pools(
-    node: &RethDbApiClient,
     db: &'static ClickhouseClient<UniswapV3Tables>,
 ) -> eyre::Result<(u64, Vec<TickFetcher>)> {
     let query = "
@@ -79,14 +74,10 @@ async fn get_initial_pools(
 
     let initial_pools: Vec<(String, u64)> = db.query_many(query, &()).await?;
 
-    let pools = join_all(
-        initial_pools
-            .into_iter()
-            .map(|(addr, blk)| TickFetcher::new(node, Address::from_str(&addr).unwrap(), blk)),
-    )
-    .await
-    .into_iter()
-    .collect::<eyre::Result<Vec<_>>>()?;
+    let pools = initial_pools
+        .into_iter()
+        .map(|(addr, blk)| TickFetcher::new(Address::from_str(&addr).unwrap(), blk))
+        .collect::<Vec<_>>();
 
     let min_block = pools.iter().map(|p| p.earliest_block).min().unwrap();
 

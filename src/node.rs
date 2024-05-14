@@ -1,11 +1,7 @@
-use std::{fmt::Debug, ops::Range, path::Path, sync::Arc};
-
-use alloy_primitives::Address;
-use alloy_rpc_types::TransactionRequest;
-use alloy_sol_types::SolCall;
+use std::{fmt::Debug, path::Path, sync::Arc};
 
 use eyre::Context;
-use itertools::Itertools;
+
 use reth_beacon_consensus::BeaconConsensus;
 use reth_blockchain_tree::{
     BlockchainTree, BlockchainTreeConfig, ShareableBlockchainTree, TreeExternals,
@@ -20,14 +16,13 @@ use reth_db::{
 };
 use reth_network_api::noop::NoopNetwork;
 use reth_node_ethereum::EthEvmConfig;
-use reth_primitives::{constants::ETHEREUM_BLOCK_GAS_LIMIT, MAINNET, U256};
+use reth_primitives::{constants::ETHEREUM_BLOCK_GAS_LIMIT, MAINNET};
 use reth_provider::{
     providers::BlockchainProvider, DatabaseProvider, ProviderFactory, StateProvider,
 };
 use reth_revm::{
     database::StateProviderDatabase,
-    db::CacheDB,
-    primitives::{BlockEnv, CfgEnvWithHandlerCfg, EnvWithHandlerCfg, TransactTo, TxEnv},
+    primitives::{BlockEnv, CfgEnvWithHandlerCfg},
     EvmProcessorFactory,
 };
 use reth_rpc::{
@@ -39,7 +34,7 @@ use reth_rpc::{
     DebugApi, EthApi, EthFilter, TraceApi,
 };
 use reth_rpc_api::EthApiServer;
-use reth_rpc_types::{BlockId, Bundle, StateContext, TransactionInput};
+use reth_rpc_types::BlockId;
 use reth_tasks::{
     pool::{BlockingTaskGuard, BlockingTaskPool},
     TaskManager,
@@ -49,8 +44,6 @@ use reth_transaction_pool::{
     EthTransactionValidator, Pool, TransactionValidationTaskExecutor,
 };
 use tokio::runtime::Handle;
-
-use crate::contracts::UniswapV3::{self};
 
 pub(crate) type RethClient = BlockchainProvider<
     Arc<DatabaseEnv>,
@@ -91,128 +84,12 @@ impl RethDbApiClient {
         Ok(self.reth_api.evm_env_at(block_number.into()).await?)
     }
 
-    pub fn cache_state_provider(
+    pub fn state_provider_db(
         &self,
         block_number: u64,
     ) -> eyre::Result<StateProviderDatabase<Box<dyn StateProvider>>> {
         let state_provider = self.reth_api.state_at_block_id(block_number.into())?;
         Ok(StateProviderDatabase::new(state_provider))
-    }
-
-    pub async fn get_tick_spacing(
-        &self,
-        address: Address,
-        block_number: Option<u64>,
-    ) -> eyre::Result<i32> {
-        let request = UniswapV3::tickSpacingCall {};
-        Ok(self
-            .make_call_request(request, address, block_number)
-            .await?
-            ._0)
-    }
-
-    pub async fn get_tick_bitmaps(
-        &self,
-        address: Address,
-        words: Range<i16>,
-        block_number: u64,
-    ) -> eyre::Result<Vec<(i16, U256)>> {
-        let requests = words
-            .clone()
-            .into_iter()
-            .map(|word| UniswapV3::tickBitmapCall { _0: word })
-            .collect();
-
-        Ok(self
-            .make_call_many_request(requests, address, Some(block_number))
-            .await?
-            .into_iter()
-            .zip(words)
-            .map(|(v, t)| (t, v._0))
-            .collect_vec())
-    }
-
-    pub async fn get_state_at_ticks(
-        &self,
-        address: Address,
-        ticks: Vec<i32>,
-        block_number: u64,
-    ) -> eyre::Result<Vec<(i32, UniswapV3::ticksReturn)>> {
-        let requests = ticks
-            .clone()
-            .into_iter()
-            .map(|tick| UniswapV3::ticksCall { _0: tick })
-            .collect();
-
-        Ok(self
-            .make_call_many_request(requests, address, Some(block_number))
-            .await?
-            .into_iter()
-            .zip(ticks)
-            .map(|(v, t)| (t, v))
-            .collect_vec())
-    }
-
-    async fn make_call_request<C: SolCall>(
-        &self,
-        call: C,
-        to: Address,
-        block_number: Option<u64>,
-    ) -> eyre::Result<C::Return> {
-        let encoded = call.abi_encode();
-        let req = TransactionRequest {
-            to: Some(to),
-            input: TransactionInput::new(encoded.into()),
-            chain_id: Some(1),
-            ..Default::default()
-        };
-
-        let res = self
-            .reth_api
-            .call(req, block_number.map(Into::into), Default::default())
-            .await?;
-
-        Ok(C::abi_decode_returns(&res, false)?)
-    }
-
-    async fn make_call_many_request<C: SolCall>(
-        &self,
-        calls: Vec<C>,
-        to: Address,
-        block_number: Option<u64>,
-    ) -> eyre::Result<Vec<C::Return>> {
-        let reqs = calls
-            .into_iter()
-            .map(|call| {
-                let encoded = call.abi_encode();
-                TransactionRequest {
-                    to: Some(to),
-                    input: TransactionInput::new(encoded.into()),
-                    chain_id: Some(1),
-                    ..Default::default()
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let bundle = Bundle {
-            transactions: reqs,
-            block_override: None,
-        };
-
-        let state = StateContext {
-            block_number: block_number.map(Into::into),
-            transaction_index: None,
-        };
-
-        let res = self
-            .reth_api
-            .call_many(bundle, Some(state), Default::default())
-            .await?
-            .into_iter()
-            .filter_map(|r| r.value.map(|v| Ok(C::abi_decode_returns(&v, false)?)))
-            .collect::<eyre::Result<Vec<_>>>();
-
-        res
     }
 }
 
