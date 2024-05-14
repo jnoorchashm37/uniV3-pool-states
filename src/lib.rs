@@ -1,6 +1,6 @@
 use db::{get_initial_pools, spawn_clickhouse_db};
-use handler::PoolHandler;
 use node::RethDbApiClient;
+use pools::PoolHandler;
 use std::sync::{Arc, OnceLock};
 use tokio::{runtime::Handle, sync::mpsc::unbounded_channel};
 use tracing::{info, Level};
@@ -9,7 +9,7 @@ use crate::db::BufferedClickhouse;
 
 pub mod aux;
 pub mod db;
-pub mod handler;
+
 pub mod node;
 pub mod pools;
 

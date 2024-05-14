@@ -1,6 +1,7 @@
 CREATE TABLE eth_analytics.uni_v3_pool_state ON CLUSTER eth_cluster0
 (
     `block_number` UInt64,
+    `tx_hash` String,
     `pool_address` String,
     `tick` Int32,
     `tick_spacing` Int32,
@@ -16,4 +17,4 @@ CREATE TABLE eth_analytics.uni_v3_pool_state ON CLUSTER eth_cluster0
 )
 ENGINE = ReplicatedReplacingMergeTree('/clickhouse/eth_cluster0/tables/all/eth_analytics/uni_v3_pool_state', '{replica}', `last_updated`)
 PRIMARY KEY (`block_number`, `pool_address`)
-ORDER BY (`block_number`, `pool_address`, `tick`)
+ORDER BY (`block_number`, `pool_address`, `tx_hash`, `tick`)
