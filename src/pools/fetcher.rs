@@ -20,7 +20,7 @@ use super::{PoolState, PoolTickFetcher, UniswapV3};
 pub struct PoolCaller<'a> {
     pub node: Arc<RethDbApiClient>,
     pub db_tx: UnboundedSender<Vec<PoolState>>,
-    pub pools: &'a [PoolTickFetcher],
+    pub pools: Vec<&'a PoolTickFetcher>,
     pub block_number: u64,
 }
 
@@ -31,6 +31,10 @@ impl<'a> PoolCaller<'a> {
         pools: &'a [PoolTickFetcher],
         block_number: u64,
     ) -> Self {
+        let pools = pools
+            .iter()
+            .filter(|pool| pool.earliest_block <= block_number)
+            .collect::<Vec<_>>();
         Self {
             node,
             db_tx,
@@ -39,25 +43,19 @@ impl<'a> PoolCaller<'a> {
         }
     }
 
-    pub async fn execute_block(self) -> Result<(), (u64, eyre::ErrReport)> {
-        Ok(self
-            .run_block()
+    pub async fn execute_block(self) -> Result<usize, (u64, eyre::ErrReport)> {
+        self.run_block()
             .await
-            .map_err(|e| (self.block_number, e.into()))?)
+            .map_err(|e| (self.block_number, e.into()))?;
+
+        Ok(self.pools.len())
     }
 
     async fn run_block(&self) -> eyre::Result<()> {
         let pool_inner = PoolDBInner::new(self.node.clone(), self.block_number).await?;
-        let pools = self
-            .pools
-            .iter()
-            .filter(|pool| pool.earliest_block <= self.block_number)
-            .collect::<Vec<_>>();
 
-        let pools_len = pools.len();
-
-        let state = execute_on_threadpool(|| self.run_cycle(&pool_inner, pools))?;
-        info!(target: "uni-v3::fetcher", "completed block {} for {pools_len} pools with {} total ticks", self.block_number, state.len());
+        let state = execute_on_threadpool(|| self.run_cycle(&pool_inner, &self.pools))?;
+        info!(target: "uni-v3::fetcher", "completed block {} for {} pools with {} total ticks", self.block_number,self.pools.len(), state.len());
 
         self.db_tx.send(state)?;
 
@@ -67,7 +65,7 @@ impl<'a> PoolCaller<'a> {
     fn run_cycle(
         &self,
         inner: &PoolDBInner,
-        pools: Vec<&PoolTickFetcher>,
+        pools: &[&PoolTickFetcher],
     ) -> eyre::Result<Vec<PoolState>> {
         let state = pools
             .par_iter()

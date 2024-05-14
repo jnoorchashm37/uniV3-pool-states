@@ -10,16 +10,19 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
 use tracing::error;
 
-const MAX_CONCURRENT_BLOCKS: usize = 20_000;
+/// reth sets it's mdbx enviroment's max readers to 32000
+/// we set ours lower to account for errored blocks + multi reads
+const MAX_TASKS: usize = 30_000;
 
 pub struct PoolHandler {
     pub node: Arc<RethDbApiClient>,
     pub db_tx: UnboundedSender<Vec<PoolState>>,
     pub pools: &'static [PoolTickFetcher],
-    pub futs: FuturesUnordered<JoinHandle<Result<(), (u64, eyre::ErrReport)>>>,
+    pub futs: FuturesUnordered<JoinHandle<Result<usize, (u64, eyre::ErrReport)>>>,
     pub current_block: u64,
     pub end_block: u64,
     pub handle: Handle,
+    pub active_tasks: usize,
 }
 
 impl PoolHandler {
@@ -39,6 +42,7 @@ impl PoolHandler {
             current_block: start_block,
             end_block,
             handle,
+            active_tasks: 0,
         }
     }
 }
@@ -52,25 +56,30 @@ impl Future for PoolHandler {
         let mut work = 4096;
 
         loop {
-            if this.end_block >= this.current_block && this.futs.len() <= MAX_CONCURRENT_BLOCKS {
+            if this.end_block >= this.current_block && this.active_tasks <= MAX_TASKS {
                 let caller = PoolCaller::new(
                     this.node.clone(),
                     this.db_tx.clone(),
                     this.pools,
                     this.current_block,
                 );
+                this.active_tasks += caller.pools.len();
                 this.futs
                     .push(this.handle.clone().spawn(caller.execute_block()));
                 this.current_block += 1;
             }
 
             while let Poll::Ready(Some(val)) = this.futs.poll_next_unpin(cx) {
-                if let Ok(Err((b, e))) = val {
-                    error!(target: "uni-v3", "failed to get block {b}, retrying - {:?}", e);
-                    let caller =
-                        PoolCaller::new(this.node.clone(), this.db_tx.clone(), this.pools, b);
-                    this.futs
-                        .push(this.handle.clone().spawn(caller.execute_block()));
+                match val {
+                    Ok(Ok(t)) => this.active_tasks -= t,
+                    Ok(Err((b, e))) => {
+                        error!(target: "uni-v3", "failed to get block {b}, retrying - {:?}", e);
+                        let caller =
+                            PoolCaller::new(this.node.clone(), this.db_tx.clone(), this.pools, b);
+                        this.futs
+                            .push(this.handle.clone().spawn(caller.execute_block()));
+                    }
+                    _ => (),
                 }
             }
 
