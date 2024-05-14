@@ -22,17 +22,9 @@ reth-revm = { git = "https://github.com/paradigmxyz/reth", package = "reth-revm"
 reth-api-libmdbx = { git = "https://github.com/jnoorchashm37/reth-api-libmdbx" }
 
 # alloy
-alloy-provider = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
-alloy-transport-ipc = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
-alloy-transport-http = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
-alloy-pubsub = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
-alloy-rpc-client = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
-alloy-transport = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
-alloy-json-rpc = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
-alloy-rpc-types = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
-alloy-rpc-types-trace = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
-alloy-sol-types = { version = "0.7.0", features = ["json"] }
 alloy-sol-macro = { version = "0.7.0", features = ["json"] }
+alloy-sol-types = { version = "0.7.0", features = ["json"] }
+alloy-rpc-types = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
 alloy-primitives = { version = "0.7.0", features = ["rlp"] }
 
 
