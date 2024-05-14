@@ -22,16 +22,15 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
 
     let reth_db_path = std::env::var("RETH_DB_PATH").expect("no 'RETH_DB_PATH' in .env");
     let node = Arc::new(RethDbApiClient::new(&reth_db_path, handle.clone()).await?);
+    let current_block = node.get_current_block()?;
 
     let db = spawn_clickhouse_db();
     let (min_block, pools) = get_initial_pools(&db).await?;
 
+    info!(target: "uni-v3", "starting block range {min_block} - {current_block} for {} pools",pools.len());
+
     let (tx, rx) = unbounded_channel();
     let buffered_db = BufferedClickhouse::new(db, rx, 100000);
-
-    let current_block = node.get_current_block()?;
-
-    info!(target: "uni-v3", "starting block range {min_block} - {current_block} for {} pools",pools.len());
 
     let handler = PoolHandler::new(
         node,
