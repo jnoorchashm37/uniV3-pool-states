@@ -125,7 +125,8 @@ impl PoolDBInner {
     pub async fn new(node: Arc<RethDbApiClient>, block_number: u64) -> eyre::Result<Self> {
         let parent_block = block_number - 1;
         let state_db = node.state_provider_db(parent_block)?;
-        let (cfg_env, block_env, _) = node.get_evm_env_at(block_number).await?;
+        let (cfg_env, mut block_env, _) = node.get_evm_env_at(block_number).await?;
+        block_env.basefee = U256::ZERO;
 
         Ok(Self {
             node,
@@ -234,13 +235,13 @@ impl PoolDBInner {
             .iter()
             .map(|transaction| {
                 let tx = tx_env_with_recovered(transaction);
-                // println!("TX: {:?}", tx);
+
                 let env = EnvWithHandlerCfg::new_with_cfg_env(
                     self.cfg.clone(),
                     self.block_env.clone(),
                     tx,
                 );
-                // println!("\n\nENV: {:?}\n\n\n\n", env);
+
                 let (res, _) = self.node.reth_api.transact(&mut self.state_db, env)?;
                 self.state_db.commit(res.state);
 
