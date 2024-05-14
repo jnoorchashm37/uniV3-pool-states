@@ -124,7 +124,7 @@ mod tests {
             .await
             .unwrap();
 
-        let pool_inner = PoolDBInner::new(Arc::new(node), 19000000).await.unwrap();
+        let pool_inner = PoolDBInner::new(Arc::new(node), 12370244).await.unwrap();
 
         let test_ticker = TickFetcher::new(
             Address::from_str("0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8").unwrap(),
