@@ -153,6 +153,7 @@ impl PoolDBInner {
             data: call.abi_encode().into(),
             chain_id: Some(1),
             gas_limit: self.block_env.gas_limit.min(U256::from(u64::MAX)).to(),
+            gas_priority_fee: Some(U256::MAX),
             ..Default::default()
         };
 
