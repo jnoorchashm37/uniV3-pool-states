@@ -1,8 +1,9 @@
 CREATE TABLE eth_analytics.uni_v3_pool_state ON CLUSTER eth_cluster0
 (
     `block_number` UInt64,
-    `tx_hash` String,
     `pool_address` String,
+    `tx_hash` String,
+    `tx_index` UInt64,
     `tick` Int32,
     `tick_spacing` Int32,
     `liquidity_gross` UInt128,

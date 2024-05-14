@@ -8,8 +8,9 @@ use crate::pools::UniswapV3;
 #[derive(Debug, Clone, Serialize, Deserialize, Row, PartialEq)]
 pub struct PoolState {
     pub block_number: u64,
-    pub tx_hash: String,
     pub pool_address: String,
+    pub tx_hash: String,
+    pub tx_index: u64,
     pub tick: i32,
     pub tick_spacing: i32,
     pub liquidity_gross: u128,
@@ -30,14 +31,16 @@ impl PoolState {
         tick_return: UniswapV3::ticksReturn,
         address: Address,
         tx_hash: TxHash,
+        tx_index: u64,
         tick: i32,
         block_number: u64,
         tick_spacing: i32,
     ) -> Self {
         Self {
             block_number,
-            tx_hash: format!("{:?}", tx_hash).to_lowercase(),
             pool_address: format!("{:?}", address).to_lowercase(),
+            tx_hash: format!("{:?}", tx_hash).to_lowercase(),
+            tx_index,
             tick,
             tick_spacing,
             liquidity_gross: tick_return.liquidityGross,

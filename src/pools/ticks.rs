@@ -27,10 +27,11 @@ impl PoolTickFetcher {
     pub fn execute_block(
         &self,
         inner: &mut PoolDBInner,
-        tx_hash: TxHash,
         block_number: u64,
+        tx_hash: TxHash,
+        tx_index: u64,
     ) -> eyre::Result<Vec<PoolState>> {
-        let state = self.get_state_from_ticks(inner, block_number, tx_hash)?;
+        let state = self.get_state_from_ticks(inner, block_number, tx_hash, tx_index)?;
 
         if state.is_empty() {
             return Ok(Vec::new());
@@ -46,6 +47,7 @@ impl PoolTickFetcher {
         inner: &mut PoolDBInner,
         block_number: u64,
         tx_hash: TxHash,
+        tx_index: u64,
     ) -> eyre::Result<Vec<PoolState>> {
         let bitmaps = inner.get_tick_bitmaps(self.pool_address, self.min_word..self.max_word)?;
         if bitmaps.is_empty() {
@@ -68,6 +70,7 @@ impl PoolTickFetcher {
                     state,
                     self.pool_address,
                     tx_hash,
+                    tx_index,
                     tick,
                     block_number,
                     tick_spacing,
@@ -130,13 +133,14 @@ mod tests {
             TxHash::from_str("0x2bdb4298b35adf058a38dfbe85470f67da1cb76e169496f9fa04fd19fb153274")
                 .unwrap();
         let calculated = test_ticker
-            .execute_block(&mut pool_inner, tx_hash, 12369879)
+            .execute_block(&mut pool_inner, 12369879, tx_hash, 253)
             .unwrap();
         let expected = vec![
             PoolState {
                 block_number: 12369879,
-                tx_hash: format!("{:?}", tx_hash).to_lowercase(),
                 pool_address: "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8".to_string(),
+                tx_hash: format!("{:?}", tx_hash).to_lowercase(),
+                tx_index: 253,
                 tick: -84120,
                 tick_spacing: 60,
                 liquidity_gross: 80059851033970806503,
@@ -150,8 +154,9 @@ mod tests {
             },
             PoolState {
                 block_number: 12369879,
-                tx_hash: format!("{:?}", tx_hash).to_lowercase(),
                 pool_address: "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8".to_string(),
+                tx_hash: format!("{:?}", tx_hash).to_lowercase(),
+                tx_index: 253,
                 tick: -78240,
                 tick_spacing: 60,
                 liquidity_gross: 80059851033970806503,

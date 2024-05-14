@@ -114,7 +114,7 @@ impl<'a> PoolCaller<'a> {
                         &parent_block_txs,
                         pool.pool_address,
                         pool_txs,
-                        |db_inner, tx, bn| pool.execute_block(db_inner, tx, bn),
+                        |db_inner, bn, tx, tx_index| pool.execute_block(db_inner, bn, tx, tx_index),
                     )
                 }
             })
@@ -234,11 +234,12 @@ impl PoolDBInner {
         f: F,
     ) -> eyre::Result<Vec<PoolState>>
     where
-        F: Fn(&mut PoolDBInner, TxHash, u64) -> eyre::Result<Vec<PoolState>>,
+        F: Fn(&mut PoolDBInner, u64, TxHash, u64) -> eyre::Result<Vec<PoolState>>,
     {
         let pool_states = parent_block_txs
             .iter()
-            .map(|transaction| {
+            .enumerate()
+            .map(|(tx_index, transaction)| {
                 let tx = tx_env_with_recovered(transaction);
 
                 let env = EnvWithHandlerCfg::new_with_cfg_env(
@@ -251,7 +252,7 @@ impl PoolDBInner {
                 self.state_db.commit(res.state);
 
                 if let Some(pool_tx) = pool_txs.get(&transaction.hash) {
-                    Ok(f(&mut self, *pool_tx, block_number)?)
+                    Ok(f(&mut self, block_number, *pool_tx, tx_index as u64)?)
                 } else {
                     Ok(Vec::new())
                 }
