@@ -132,7 +132,7 @@ impl Future for BufferedClickhouse {
             }
         } else {
             if this.queue.len() >= this.insert_size {
-                this.inserting = this.queue.drain(..this.insert_size).collect_vec();
+                this.inserting = this.queue.drain(..).collect_vec();
 
                 let db = this.db.clone();
                 this.fut = Some(Box::pin(Self::insert(db, this.inserting.clone())));
