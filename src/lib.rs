@@ -18,6 +18,8 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
         format!("uni-v3={}", Level::INFO).parse()?,
     )]);
 
+    println!("STARTING");
+
     init_threadpool();
 
     let reth_db_path = std::env::var("RETH_DB_PATH").expect("no 'RETH_DB_PATH' in .env");
