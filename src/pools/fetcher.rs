@@ -1,11 +1,7 @@
-use crate::{
-    db::{UniV3PoolState, UniswapV3Tables},
-    execute_on_threadpool,
-    node::RethDbApiClient,
-};
+use crate::{execute_on_threadpool, node::RethDbApiClient};
 use alloy_primitives::Address;
 use alloy_sol_types::SolCall;
-use db_interfaces::{clickhouse::client::ClickhouseClient, Database};
+
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use reth_primitives::U256;
 use reth_provider::StateProvider;
@@ -16,13 +12,14 @@ use reth_revm::{
 };
 use reth_rpc::eth::EthTransactions;
 use std::{ops::Range, sync::Arc};
+use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
 
-use super::{TickFetcher, UniswapV3};
+use super::{PoolState, TickFetcher, UniswapV3};
 
 pub struct PoolCaller<'a> {
     pub node: Arc<RethDbApiClient>,
-    pub db: &'a ClickhouseClient<UniswapV3Tables>,
+    pub db_tx: UnboundedSender<Vec<PoolState>>,
     pub pools: &'a [TickFetcher],
     pub block_number: u64,
 }
@@ -30,13 +27,13 @@ pub struct PoolCaller<'a> {
 impl<'a> PoolCaller<'a> {
     pub fn new(
         node: Arc<RethDbApiClient>,
-        db: &'a ClickhouseClient<UniswapV3Tables>,
+        db_tx: UnboundedSender<Vec<PoolState>>,
         pools: &'a [TickFetcher],
         block_number: u64,
     ) -> Self {
         Self {
             node,
-            db,
+            db_tx,
             pools,
             block_number,
         }
@@ -72,7 +69,7 @@ impl<'a> PoolCaller<'a> {
 
         info!(target: "uni-v3", "completed block {} for {} pools with {} total ticks", self.block_number, pools.len(), state.len());
 
-        self.db.insert_many::<UniV3PoolState>(&state).await?;
+        self.db_tx.send(state)?;
 
         Ok(())
     }

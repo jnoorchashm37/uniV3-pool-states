@@ -1,9 +1,18 @@
-use std::str::FromStr;
+use std::{
+    pin::Pin,
+    str::FromStr,
+    task::{Context, Poll},
+};
 
 use db_interfaces::{
-    clickhouse::client::ClickhouseClient, clickhouse_dbms, remote_clickhouse_table, Database,
+    clickhouse::{client::ClickhouseClient, config::ClickhouseConfig},
+    clickhouse_dbms, remote_clickhouse_table, Database,
 };
+use futures::{Future, FutureExt};
+use itertools::Itertools;
 use reth_primitives::Address;
+use tokio::sync::mpsc::UnboundedReceiver;
+use tracing::{error, info};
 
 use crate::pools::{PoolState, TickFetcher};
 
@@ -18,7 +27,13 @@ remote_clickhouse_table!(
 );
 
 pub fn spawn_clickhouse_db() -> ClickhouseClient<UniswapV3Tables> {
-    ClickhouseClient::<UniswapV3Tables>::default()
+    let url = std::env::var("CLICKHOUSE_URL").expect("CLICKHOUSE_URL not found in .env");
+    let user = std::env::var("CLICKHOUSE_USER").expect("CLICKHOUSE_USER not found in .env");
+    let pass = std::env::var("CLICKHOUSE_PASS").expect("CLICKHOUSE_PASS not found in .env");
+
+    let config = ClickhouseConfig::new(user, pass, url, false, None);
+
+    config.build()
 }
 
 pub const INITIAL_POOLS_QUERY: &str = "
@@ -40,7 +55,7 @@ address = '0xe8c6c9227491c0a8156a0106a0204d881bb7e531'
 ";
 
 pub async fn get_initial_pools(
-    db: &'static ClickhouseClient<UniswapV3Tables>,
+    db: &ClickhouseClient<UniswapV3Tables>,
 ) -> eyre::Result<(u64, Vec<TickFetcher>)> {
     let initial_pools: Vec<(String, u64)> = db.query_many(INITIAL_POOLS_QUERY, &()).await?;
 
@@ -52,4 +67,79 @@ pub async fn get_initial_pools(
     let min_block = pools.iter().map(|p| p.earliest_block).min().unwrap();
 
     Ok((min_block, pools))
+}
+
+pub struct BufferedClickhouse {
+    pub db: ClickhouseClient<UniswapV3Tables>,
+    pub rx: UnboundedReceiver<Vec<PoolState>>,
+    pub fut: Option<Pin<Box<dyn Future<Output = eyre::Result<()>>>>>,
+    pub queue: Vec<PoolState>,
+    pub inserting: Vec<PoolState>,
+    pub insert_size: usize,
+}
+impl BufferedClickhouse {
+    pub fn new(
+        db: ClickhouseClient<UniswapV3Tables>,
+        rx: UnboundedReceiver<Vec<PoolState>>,
+        insert_size: usize,
+    ) -> Self {
+        Self {
+            db,
+            rx,
+            fut: None,
+            queue: Vec::new(),
+            inserting: Vec::new(),
+            insert_size,
+        }
+    }
+
+    async fn insert(
+        db: ClickhouseClient<UniswapV3Tables>,
+        vals: Vec<PoolState>,
+    ) -> eyre::Result<()> {
+        Ok(db.insert_many::<UniV3PoolState>(&vals).await?)
+    }
+}
+
+impl Future for BufferedClickhouse {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.get_mut();
+
+        if let Poll::Ready(inc) = this.rx.poll_recv(cx) {
+            if let Some(vals) = inc {
+                this.queue.extend(vals);
+            } else {
+                return Poll::Ready(());
+            }
+        }
+
+        let fut = this.fut.take();
+        if let Some(mut f) = fut {
+            if let Poll::Ready(val) = f.poll_unpin(cx) {
+                if let Err(e) = val {
+                    let db = this.db.clone();
+                    this.fut = Some(Box::pin(Self::insert(db, this.inserting.clone())));
+                    error!(target: "uni-v3::db", "error inserting into db, RETRYING - {:?}", e);
+                } else {
+                    info!(target: "uni-v3::db", "inserted {} values into db", this.inserting.len());
+                    this.inserting.clear();
+                }
+            } else {
+                this.fut = Some(f)
+            }
+        }
+
+        if this.fut.is_none() {
+            if this.queue.len() >= this.insert_size {
+                this.inserting = this.queue.drain(..this.insert_size).collect_vec();
+
+                let db = this.db.clone();
+                this.fut = Some(Box::pin(Self::insert(db, this.inserting.clone())));
+            }
+        }
+
+        Poll::Pending
+    }
 }

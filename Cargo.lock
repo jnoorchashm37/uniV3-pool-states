@@ -1312,9 +1312,9 @@ checksum = "c3ac9f8b63eca6fd385229b3675f6cc0dc5c8a5c8a54a59d4f52ffd670d87b0c"
 
 [[package]]
 name = "bytemuck"
-version = "1.15.0"
+version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d6d68c57235a3a081186990eca2867354726650f42f7516ca50c28d6281fd15"
+checksum = "78834c15cb5d5efe3452d58b1e8ba890dd62d21907f867f383358198e56ebca5"
 dependencies = [
  "bytemuck_derive",
 ]
@@ -1521,6 +1521,7 @@ dependencies = [
  "serde_with",
  "static_assertions",
  "thiserror",
+ "time",
  "tokio",
  "url",
 ]
@@ -1932,7 +1933,7 @@ dependencies = [
 [[package]]
 name = "db-interfaces"
 version = "0.1.0"
-source = "git+https://github.com/SorellaLabs/db-interfaces#af8f7b9849cc9098ebacc0de02a36516a84b9d7d"
+source = "git+https://github.com/SorellaLabs/db-interfaces#e417184607e05dd385012ec8fc45218c8afa7115"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -1960,7 +1961,7 @@ dependencies = [
 [[package]]
 name = "db-interfaces-macros"
 version = "0.1.0"
-source = "git+https://github.com/SorellaLabs/db-interfaces#af8f7b9849cc9098ebacc0de02a36516a84b9d7d"
+source = "git+https://github.com/SorellaLabs/db-interfaces#e417184607e05dd385012ec8fc45218c8afa7115"
 dependencies = [
  "dotenv",
  "itertools 0.11.0",
