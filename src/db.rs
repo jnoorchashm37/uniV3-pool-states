@@ -95,7 +95,7 @@ impl BufferedClickhouse {
     }
 
     async fn insert(
-        db: ClickhouseClient<UniswapV3Tables>,
+        db: Arc<ClickhouseClient<UniswapV3Tables>>,
         vals: Vec<PoolState>,
     ) -> eyre::Result<()> {
         Ok(db.insert_many::<UniV3PoolState>(&vals).await?)
