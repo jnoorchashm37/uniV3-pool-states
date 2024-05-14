@@ -15,7 +15,7 @@ pub mod pools;
 
 pub async fn run(handle: Handle) -> eyre::Result<()> {
     aux::init(vec![aux::stdout(
-        format!("uni-v3={}", Level::INFO).parse()?,
+        format!("uni-v3={}", Level::DEBUG).parse()?,
     )]);
 
     init_threadpool();
