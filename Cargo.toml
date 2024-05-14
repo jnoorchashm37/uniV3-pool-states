@@ -27,10 +27,7 @@ alloy-sol-types = { version = "0.7.0", features = ["json"] }
 alloy-rpc-types = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
 alloy-primitives = { version = "0.7.0", features = ["rlp"] }
 
-
 # error handling
-thiserror = "1.0.44"
-jsonrpsee = { version = "0.20", features = ["server", "macros"] }
 eyre = "0.6.5"
 
 # serde
@@ -39,7 +36,6 @@ serde = "1.0"
 # async
 async-trait = "0.1.73"
 tokio = { version = "1.28.2", features = ["full"] }
-futures-util = "0.3.21"
 futures = "0.3.28"
 tokio-stream = "0.1.14"
 
