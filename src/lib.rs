@@ -35,7 +35,7 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
     let this_handle = handle.clone();
     handle
         .clone()
-        .spawn_blocking(|| this_handle.block_on(buffered_db));
+        .spawn_blocking(move || this_handle.block_on(buffered_db));
 
     let handler = PoolHandler::new(
         node,

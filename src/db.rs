@@ -72,7 +72,7 @@ pub async fn get_initial_pools(
 pub struct BufferedClickhouse {
     pub db: ClickhouseClient<UniswapV3Tables>,
     pub rx: UnboundedReceiver<Vec<PoolState>>,
-    pub fut: Option<Pin<Box<dyn Future<Output = eyre::Result<()>>>>>,
+    pub fut: Option<Pin<Box<dyn Future<Output = eyre::Result<()>> + Send>>>,
     pub queue: Vec<PoolState>,
     pub inserting: Vec<PoolState>,
     pub insert_size: usize,
