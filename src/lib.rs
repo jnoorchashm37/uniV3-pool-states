@@ -32,6 +32,11 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
     let (tx, rx) = unbounded_channel();
     let buffered_db = BufferedClickhouse::new(db, rx, 100000);
 
+    let this_handle = handle.clone();
+    handle
+        .clone()
+        .spawn_blocking(|| this_handle.block_on(buffered_db));
+
     let handler = PoolHandler::new(
         node,
         tx,
@@ -41,10 +46,7 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
         handle.clone(),
     );
 
-    tokio::select! {
-        _ = handler => (),
-        _ = buffered_db => (),
-    }
+    handler.await;
 
     Ok(())
 }
