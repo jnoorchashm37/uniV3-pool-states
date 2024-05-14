@@ -1,2 +1,3 @@
 # Uniswap V3 Pool State
-calls the uniswap V3 pool state by block and inserts the data into clickhouse
+gets the uniswap V3 pool state by block via direct db connection to reth and inserts into clickhouse
+
