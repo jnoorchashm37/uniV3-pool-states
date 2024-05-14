@@ -99,14 +99,24 @@ impl<'a> PoolCaller<'a> {
         let state = pools
             .par_iter()
             .map(|pool| {
-                let inner = inner.clone();
-                inner.execute_cycle(
-                    self.block_number,
-                    &parent_block_txs,
-                    pool.pool_address,
-                    pool_txs,
-                    |db_inner, tx, bn| pool.execute_block(db_inner, tx, bn),
-                )
+                let pool_txs = pool_txs
+                    .iter()
+                    .filter(|(p, _)| p == &pool.pool_address)
+                    .map(|(_, t)| *t)
+                    .collect::<HashSet<_>>();
+
+                if pool_txs.is_empty() {
+                    Ok(Vec::new())
+                } else {
+                    let inner = inner.clone();
+                    inner.execute_cycle(
+                        self.block_number,
+                        &parent_block_txs,
+                        pool.pool_address,
+                        pool_txs,
+                        |db_inner, tx, bn| pool.execute_block(db_inner, tx, bn),
+                    )
+                }
             })
             .collect::<eyre::Result<Vec<_>>>()?
             .into_iter()
@@ -220,22 +230,12 @@ impl PoolDBInner {
         block_number: u64,
         parent_block_txs: &[TransactionSignedEcRecovered],
         pool_address: Address,
-        pool_txs: &[(Address, TxHash)],
+        pool_txs: HashSet<TxHash>,
         f: F,
     ) -> eyre::Result<Vec<PoolState>>
     where
         F: Fn(&mut PoolDBInner, TxHash, u64) -> eyre::Result<Vec<PoolState>>,
     {
-        let pool_txs = pool_txs
-            .iter()
-            .filter(|(p, _)| p == &pool_address)
-            .map(|(_, t)| t)
-            .collect::<HashSet<_>>();
-
-        if pool_txs.is_empty() {
-            return Ok(Vec::new());
-        }
-
         let pool_states = parent_block_txs
             .iter()
             .map(|transaction| {
@@ -251,7 +251,7 @@ impl PoolDBInner {
                 self.state_db.commit(res.state);
 
                 if let Some(pool_tx) = pool_txs.get(&transaction.hash) {
-                    Ok(f(&mut self, **pool_tx, block_number)?)
+                    Ok(f(&mut self, *pool_tx, block_number)?)
                 } else {
                     Ok(Vec::new())
                 }
