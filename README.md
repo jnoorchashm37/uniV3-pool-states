@@ -1,5 +1,6 @@
 # Uniswap V3 Pool State
 Uniswap V3 pool states by block since the inception of the pool.
+- Does not handle intra-block state
 
 Currently supports the following pools:
 - ETH/USDT: 0x4e68Ccd3E89f51C3074ca5072bbAC773960dFa36
