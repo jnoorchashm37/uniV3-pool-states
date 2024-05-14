@@ -15,3 +15,7 @@ Currently supports the following pools:
 - PEPE-ETH: 0x11950d141EcB863F01007AdD7D1A342041227b58
 - WBTC-USDT: 0x9Db9e0e53058C89e5B94e29621a205198648425B
 - MKR-ETH: 0xe8c6c9227491C0a8156A0106A0204d881BB7E531
+
+
+### Note
+the `MAX_TASKS` in `pools/handler.rs` consumes a lot of memory (~50GB for 25000 tasks), lower it if necessary
