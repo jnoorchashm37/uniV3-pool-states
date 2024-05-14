@@ -8036,7 +8036,6 @@ dependencies = [
  "alloy-sol-macro",
  "alloy-sol-types",
  "async-trait",
- "clap",
  "clickhouse",
  "db-interfaces",
  "dotenv",
