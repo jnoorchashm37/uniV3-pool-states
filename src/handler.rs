@@ -39,8 +39,8 @@ impl PoolHandler {
             db_tx,
             pools,
             futs: FuturesUnordered::new(),
-            current_block: start_block,
-            end_block,
+            current_block: end_block,
+            end_block: start_block,
             handle,
             active_tasks: 0,
         }
@@ -56,7 +56,7 @@ impl Future for PoolHandler {
         let mut work = 4096;
 
         loop {
-            if this.end_block >= this.current_block && this.active_tasks <= MAX_TASKS {
+            if this.end_block <= this.current_block && this.active_tasks <= MAX_TASKS {
                 let caller = PoolCaller::new(
                     this.node.clone(),
                     this.db_tx.clone(),
@@ -66,7 +66,7 @@ impl Future for PoolHandler {
                 this.active_tasks += caller.pools.len();
                 this.futs
                     .push(this.handle.clone().spawn(caller.execute_block()));
-                this.current_block += 1;
+                this.current_block -= 1;
             }
 
             while let Poll::Ready(Some(val)) = this.futs.poll_next_unpin(cx) {
@@ -83,7 +83,7 @@ impl Future for PoolHandler {
                 }
             }
 
-            if this.futs.is_empty() && this.end_block < this.current_block {
+            if this.futs.is_empty() && this.end_block > this.current_block {
                 return Poll::Ready(());
             }
 
