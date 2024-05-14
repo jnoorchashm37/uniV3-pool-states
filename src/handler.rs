@@ -11,7 +11,7 @@ use tokio::task::JoinHandle;
 use tracing::error;
 
 /// reth sets it's mdbx enviroment's max readers to 32000
-/// we set ours slightly lower to account for errored blocks
+/// we set ours lower to account for errored blocks + multi reads
 const MDBX_READERS_LIMIT: usize = 10_000;
 
 pub struct PoolHandler {
