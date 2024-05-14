@@ -130,9 +130,7 @@ impl Future for BufferedClickhouse {
             } else {
                 this.fut = Some(f)
             }
-        }
-
-        if this.fut.is_none() {
+        } else {
             if this.queue.len() >= this.insert_size {
                 this.inserting = this.queue.drain(..this.insert_size).collect_vec();
 
