@@ -15,12 +15,12 @@ use std::{ops::Range, sync::Arc};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
 
-use super::{PoolState, TickFetcher, UniswapV3};
+use super::{PoolState, PoolTickFetcher, UniswapV3};
 
 pub struct PoolCaller<'a> {
     pub node: Arc<RethDbApiClient>,
     pub db_tx: UnboundedSender<Vec<PoolState>>,
-    pub pools: &'a [TickFetcher],
+    pub pools: &'a [PoolTickFetcher],
     pub block_number: u64,
 }
 
@@ -28,7 +28,7 @@ impl<'a> PoolCaller<'a> {
     pub fn new(
         node: Arc<RethDbApiClient>,
         db_tx: UnboundedSender<Vec<PoolState>>,
-        pools: &'a [TickFetcher],
+        pools: &'a [PoolTickFetcher],
         block_number: u64,
     ) -> Self {
         Self {
@@ -67,7 +67,7 @@ impl<'a> PoolCaller<'a> {
             .flatten()
             .collect::<Vec<_>>();
 
-        info!(target: "uni-v3", "completed block {} for {} pools with {} total ticks", self.block_number, pools.len(), state.len());
+        info!(target: "uni-v3::fetcher", "completed block {} for {} pools with {} total ticks", self.block_number, pools.len(), state.len());
 
         self.db_tx.send(state)?;
 

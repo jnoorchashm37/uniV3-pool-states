@@ -6,14 +6,14 @@ use super::PoolDBInner;
 use super::PoolState;
 
 #[derive(Clone)]
-pub struct TickFetcher {
+pub struct PoolTickFetcher {
     pub pool: Address,
     pub min_word: i16,
     pub max_word: i16,
     pub earliest_block: u64,
 }
 
-impl TickFetcher {
+impl PoolTickFetcher {
     pub fn new(pool: Address, earliest_block: u64) -> Self {
         Self {
             pool,
@@ -126,7 +126,7 @@ mod tests {
 
         let pool_inner = PoolDBInner::new(Arc::new(node), 12370244).await.unwrap();
 
-        let test_ticker = TickFetcher::new(
+        let test_ticker = PoolTickFetcher::new(
             Address::from_str("0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8").unwrap(),
             12369854,
         );

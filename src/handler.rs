@@ -1,5 +1,5 @@
 use crate::node::RethDbApiClient;
-use crate::pools::{PoolCaller, PoolState, TickFetcher};
+use crate::pools::{PoolCaller, PoolState, PoolTickFetcher};
 use futures::StreamExt;
 use futures::{stream::FuturesUnordered, Future};
 use std::pin::Pin;
@@ -17,7 +17,7 @@ const MDBX_READERS_LIMIT: usize = 30_000;
 pub struct PoolHandler {
     pub node: Arc<RethDbApiClient>,
     pub db_tx: UnboundedSender<Vec<PoolState>>,
-    pub pools: &'static [TickFetcher],
+    pub pools: &'static [PoolTickFetcher],
     pub futs: FuturesUnordered<JoinHandle<Result<(), (u64, eyre::ErrReport)>>>,
     pub current_block: u64,
     pub end_block: u64,
@@ -28,7 +28,7 @@ impl PoolHandler {
     pub fn new(
         node: Arc<RethDbApiClient>,
         db_tx: UnboundedSender<Vec<PoolState>>,
-        pools: &'static [TickFetcher],
+        pools: &'static [PoolTickFetcher],
         start_block: u64,
         end_block: u64,
         handle: Handle,

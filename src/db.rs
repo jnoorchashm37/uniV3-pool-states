@@ -14,7 +14,7 @@ use reth_primitives::Address;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::{error, info};
 
-use crate::pools::{PoolState, TickFetcher};
+use crate::pools::{PoolState, PoolTickFetcher};
 
 clickhouse_dbms!(UniswapV3Tables, [UniV3PoolState]);
 
@@ -56,12 +56,12 @@ address = '0xe8c6c9227491c0a8156a0106a0204d881bb7e531'
 
 pub async fn get_initial_pools(
     db: &ClickhouseClient<UniswapV3Tables>,
-) -> eyre::Result<(u64, Vec<TickFetcher>)> {
+) -> eyre::Result<(u64, Vec<PoolTickFetcher>)> {
     let initial_pools: Vec<(String, u64)> = db.query_many(INITIAL_POOLS_QUERY, &()).await?;
 
     let pools = initial_pools
         .into_iter()
-        .map(|(addr, blk)| TickFetcher::new(Address::from_str(&addr).unwrap(), blk))
+        .map(|(addr, blk)| PoolTickFetcher::new(Address::from_str(&addr).unwrap(), blk))
         .collect::<Vec<_>>();
 
     let min_block = pools.iter().map(|p| p.earliest_block).min().unwrap();
@@ -139,6 +139,8 @@ impl Future for BufferedClickhouse {
                 this.fut = Some(Box::pin(Self::insert(db, this.inserting.clone())));
             }
         }
+
+        cx.waker().wake_by_ref();
 
         Poll::Pending
     }
