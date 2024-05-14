@@ -48,30 +48,39 @@ impl<'a> PoolCaller<'a> {
 
     async fn run_block(&self) -> eyre::Result<()> {
         let pool_inner = PoolDBInner::new(self.node.clone(), self.block_number).await?;
-
         let pools = self
             .pools
             .iter()
             .filter(|pool| pool.earliest_block <= self.block_number)
             .collect::<Vec<_>>();
 
+        let pools_len = pools.len();
+
+        let state = execute_on_threadpool(|| self.run_cycle(&pool_inner, pools))?;
+        info!(target: "uni-v3::fetcher", "completed block {} for {pools_len} pools with {} total ticks", self.block_number, state.len());
+
+        self.db_tx.send(state)?;
+
+        Ok(())
+    }
+
+    fn run_cycle(
+        &self,
+        inner: &PoolDBInner,
+        pools: Vec<&PoolTickFetcher>,
+    ) -> eyre::Result<Vec<PoolState>> {
         let state = pools
             .par_iter()
             .map(|pool| {
-                let inner = pool_inner.clone();
                 let block_number = self.block_number;
-                execute_on_threadpool(|| pool.execute_block(inner, block_number))
+                pool.execute_block(inner, block_number)
             })
             .collect::<eyre::Result<Vec<_>>>()?
             .into_iter()
             .flatten()
             .collect::<Vec<_>>();
 
-        info!(target: "uni-v3::fetcher", "completed block {} for {} pools with {} total ticks", self.block_number, pools.len(), state.len());
-
-        self.db_tx.send(state)?;
-
-        Ok(())
+        Ok(state)
     }
 }
 

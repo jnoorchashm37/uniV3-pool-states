@@ -25,7 +25,7 @@ impl PoolTickFetcher {
 
     pub fn execute_block(
         &self,
-        inner: PoolDBInner,
+        inner: &PoolDBInner,
         block_number: u64,
     ) -> eyre::Result<Vec<PoolState>> {
         let state = self.get_state_from_ticks(&inner, block_number)?;
@@ -131,7 +131,7 @@ mod tests {
             12369854,
         );
 
-        let calculated = test_ticker.execute_block(pool_inner, 12370244).unwrap();
+        let calculated = test_ticker.execute_block(&pool_inner, 12370244).unwrap();
         let expected = vec![
             PoolState {
                 block_number: 12370244,
