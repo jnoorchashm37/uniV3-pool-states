@@ -49,7 +49,7 @@ impl<'a> PoolCaller<'a> {
     pub async fn execute_block(self) -> Result<usize, (u64, eyre::ErrReport)> {
         self.run_block()
             .await
-            .map_err(|e| (self.block_number, e.into()))?;
+            .map_err(|e| (self.block_number, e))?;
 
         Ok(self.pools.len())
     }
@@ -76,7 +76,7 @@ impl<'a> PoolCaller<'a> {
 
         let pool_txs = self
             .node
-            .get_transaction_traces_with_addresses(&&addresses, self.block_number)
+            .get_transaction_traces_with_addresses((&addresses), self.block_number)
             .await?;
 
         let state = execute_on_threadpool(|| {
@@ -111,7 +111,7 @@ impl<'a> PoolCaller<'a> {
                     let inner = inner.clone();
                     inner.execute_cycle(
                         self.block_number,
-                        &parent_block_txs,
+                        parent_block_txs,
                         pool.pool_address,
                         pool_txs,
                         |db_inner, bn, tx, tx_index| pool.execute_block(db_inner, bn, tx, tx_index),
@@ -180,7 +180,6 @@ impl PoolDBInner {
     ) -> eyre::Result<Vec<(i16, U256)>> {
         words
             .clone()
-            .into_iter()
             .map(|word| {
                 let call = UniswapV3::tickBitmapCall { _0: word };
                 let to = address;
@@ -214,7 +213,7 @@ impl PoolDBInner {
                 gas_refunded: _,
                 logs: _,
                 output,
-            } => Ok(C::abi_decode_returns(&output.data(), false)?),
+            } => Ok(C::abi_decode_returns(output.data(), false)?),
             reth_revm::primitives::ExecutionResult::Revert { .. } => {
                 Err(eyre::ErrReport::msg("Revert"))
             }

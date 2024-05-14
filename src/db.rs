@@ -113,13 +113,11 @@ impl Future for BufferedClickhouse {
         if let Poll::Ready(inc) = this.rx.poll_recv(cx) {
             if let Some(vals) = inc {
                 this.queue.extend(vals);
+            } else if this.queue.is_empty() && this.inserting.is_empty() && this.fut.is_none() {
+                info!(target: "uni-v3", "shutting down clickhouse connection");
+                return Poll::Ready(());
             } else {
-                if this.queue.is_empty() && this.inserting.is_empty() && this.fut.is_none() {
-                    info!(target: "uni-v3", "shutting down clickhouse connection");
-                    return Poll::Ready(());
-                } else {
-                    is_finished = true;
-                }
+                is_finished = true;
             }
         }
 
@@ -137,13 +135,11 @@ impl Future for BufferedClickhouse {
             } else {
                 this.fut = Some(f)
             }
-        } else {
-            if this.queue.len() >= this.insert_size || is_finished {
-                this.inserting = this.queue.drain(..).collect_vec();
+        } else if this.queue.len() >= this.insert_size || is_finished {
+            this.inserting = this.queue.drain(..).collect_vec();
 
-                let db = this.db.clone();
-                this.fut = Some(Box::pin(Self::insert(db, this.inserting.clone())));
-            }
+            let db = this.db.clone();
+            this.fut = Some(Box::pin(Self::insert(db, this.inserting.clone())));
         }
 
         cx.waker().wake_by_ref();

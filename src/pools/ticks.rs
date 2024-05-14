@@ -85,7 +85,6 @@ impl PoolTickFetcher {
             .flat_map(|(idx, map)| {
                 if map != U256::ZERO {
                     (0..256)
-                        .into_iter()
                         .filter_map(|i| {
                             if (map & (U256::from(1u8) << i)) != U256::ZERO {
                                 let tick_index = (idx as i32 * 256 + i) * tick_spacing;
