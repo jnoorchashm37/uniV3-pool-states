@@ -3,17 +3,20 @@ use alloy_primitives::Address;
 use alloy_sol_types::SolCall;
 
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use reth_primitives::U256;
+use reth_primitives::{
+    revm::env::tx_env_with_recovered, TransactionSignedEcRecovered, TxHash, U256,
+};
 use reth_provider::StateProvider;
 use reth_revm::{
     database::StateProviderDatabase,
     db::CacheDB,
-    primitives::{BlockEnv, EnvWithHandlerCfg, TransactTo, TxEnv},
+    primitives::{BlockEnv, CfgEnvWithHandlerCfg, EnvWithHandlerCfg, TransactTo, TxEnv},
+    DatabaseCommit,
 };
 use reth_rpc::eth::EthTransactions;
-use std::{ops::Range, sync::Arc};
+use std::{collections::HashSet, ops::Range, sync::Arc};
 use tokio::sync::mpsc::UnboundedSender;
-use tracing::info;
+use tracing::{debug, info};
 
 use super::{PoolState, PoolTickFetcher, UniswapV3};
 
@@ -53,8 +56,27 @@ impl<'a> PoolCaller<'a> {
 
     async fn run_block(&self) -> eyre::Result<()> {
         let pool_inner = PoolDBInner::new(self.node.clone(), self.block_number).await?;
+        let parent_block_txs = self
+            .node
+            .get_parent_block_with_signers(self.block_number)
+            .await?
+            .into_transactions_ecrecovered()
+            .collect::<Vec<_>>();
 
-        let state = execute_on_threadpool(|| self.run_cycle(&pool_inner, &self.pools))?;
+        let addresses = self
+            .pools
+            .iter()
+            .map(|pool| pool.pool_address)
+            .collect::<Vec<_>>();
+
+        let pool_txs = self
+            .node
+            .get_transaction_traces_with_addresses(&&addresses, self.block_number)
+            .await?;
+
+        let state = execute_on_threadpool(|| {
+            self.run_cycle(pool_inner, &parent_block_txs, &pool_txs, &self.pools)
+        })?;
         info!(target: "uni-v3::fetcher", "completed block {} for {} pools with {} total ticks", self.block_number,self.pools.len(), state.len());
 
         self.db_tx.send(state)?;
@@ -64,14 +86,22 @@ impl<'a> PoolCaller<'a> {
 
     fn run_cycle(
         &self,
-        inner: &PoolDBInner,
+        inner: PoolDBInner,
+        parent_block_txs: &[TransactionSignedEcRecovered],
+        pool_txs: &[(Address, TxHash)],
         pools: &[&PoolTickFetcher],
     ) -> eyre::Result<Vec<PoolState>> {
         let state = pools
             .par_iter()
             .map(|pool| {
-                let block_number = self.block_number;
-                pool.execute_block(inner, block_number)
+                let inner = inner.clone();
+                inner.execute_cycle(
+                    self.block_number,
+                    &parent_block_txs,
+                    pool.pool_address,
+                    pool_txs,
+                    |db_inner, tx, bn| pool.execute_block(db_inner, tx, bn),
+                )
             })
             .collect::<eyre::Result<Vec<_>>>()?
             .into_iter()
@@ -85,20 +115,23 @@ impl<'a> PoolCaller<'a> {
 #[derive(Clone)]
 pub struct PoolDBInner {
     pub node: Arc<RethDbApiClient>,
-    pub state_db: Arc<StateProviderDatabase<Box<dyn StateProvider>>>,
+    pub state_db: CacheDB<Arc<StateProviderDatabase<Box<dyn StateProvider>>>>,
+    pub cfg: CfgEnvWithHandlerCfg,
     pub env: EnvWithHandlerCfg,
     pub block_env: BlockEnv,
 }
 
 impl PoolDBInner {
     pub async fn new(node: Arc<RethDbApiClient>, block_number: u64) -> eyre::Result<Self> {
-        let state_db = node.state_provider_db(block_number)?;
-        let (cfg_env, mut block_env, _) = node.get_evm_env_at(block_number).await?;
+        let parent_block = block_number - 1;
+        let state_db = node.state_provider_db(parent_block)?;
+        let (cfg_env, mut block_env, _) = node.get_evm_env_at(parent_block).await?;
         block_env.basefee = U256::ZERO;
 
         Ok(Self {
             node,
-            state_db: Arc::new(state_db),
+            state_db: CacheDB::new(Arc::new(state_db)),
+            cfg: cfg_env.clone(),
             env: EnvWithHandlerCfg::new_with_cfg_env(
                 cfg_env,
                 block_env.clone(),
@@ -109,7 +142,7 @@ impl PoolDBInner {
     }
 
     pub fn get_state_at_ticks(
-        &self,
+        &mut self,
         address: Address,
         ticks: Vec<i32>,
     ) -> eyre::Result<Vec<(i32, UniswapV3::ticksReturn)>> {
@@ -120,13 +153,13 @@ impl PoolDBInner {
                 let call = UniswapV3::ticksCall { _0: tick };
                 let to = address;
 
-                Ok((tick, self.transact(call, to)?))
+                Ok((tick, self.transact_call(call, to)?))
             })
             .collect::<eyre::Result<Vec<_>>>()
     }
 
     pub fn get_tick_bitmaps(
-        &self,
+        &mut self,
         address: Address,
         words: Range<i16>,
     ) -> eyre::Result<Vec<(i16, U256)>> {
@@ -137,17 +170,17 @@ impl PoolDBInner {
                 let call = UniswapV3::tickBitmapCall { _0: word };
                 let to = address;
 
-                Ok((word, self.transact(call, to)?._0))
+                Ok((word, self.transact_call(call, to)?._0))
             })
             .collect::<eyre::Result<Vec<_>>>()
     }
 
-    pub fn get_tick_spacing(&self, to: Address) -> eyre::Result<i32> {
+    pub fn get_tick_spacing(&mut self, to: Address) -> eyre::Result<i32> {
         let request = UniswapV3::tickSpacingCall {};
-        Ok(self.transact(request, to)?._0)
+        Ok(self.transact_call(request, to)?._0)
     }
 
-    fn transact<C: SolCall>(&self, call: C, to: Address) -> eyre::Result<C::Return> {
+    fn transact_call<C: SolCall>(&mut self, call: C, to: Address) -> eyre::Result<C::Return> {
         let mut env = self.env.clone();
         env.tx = TxEnv {
             transact_to: TransactTo::Call(to),
@@ -157,9 +190,7 @@ impl PoolDBInner {
             ..Default::default()
         };
 
-        let mut cache_db = CacheDB::new(self.state_db.clone());
-
-        let (res, _) = self.node.reth_api.transact(&mut cache_db, env)?;
+        let (res, _) = self.node.reth_api.transact(&mut self.state_db, env)?;
 
         match res.result {
             reth_revm::primitives::ExecutionResult::Success {
@@ -177,5 +208,50 @@ impl PoolDBInner {
                 gas_used: _,
             } => Err(eyre::ErrReport::msg(format!("HALT: {:?}", reason))),
         }
+    }
+
+    fn execute_cycle<F>(
+        mut self,
+        block_number: u64,
+        parent_block_txs: &[TransactionSignedEcRecovered],
+        pool_address: Address,
+        pool_txs: &[(Address, TxHash)],
+        f: F,
+    ) -> eyre::Result<Vec<PoolState>>
+    where
+        F: Fn(&mut PoolDBInner, TxHash, u64) -> eyre::Result<Vec<PoolState>>,
+    {
+        let pool_txs = pool_txs
+            .iter()
+            .filter(|(p, _)| p == &pool_address)
+            .map(|(_, t)| t)
+            .collect::<HashSet<_>>();
+
+        let pool_states = parent_block_txs
+            .iter()
+            .map(|transaction| {
+                let tx = tx_env_with_recovered(transaction);
+                let env = EnvWithHandlerCfg::new_with_cfg_env(
+                    self.cfg.clone(),
+                    self.block_env.clone(),
+                    tx,
+                );
+                let (res, _) = self.node.reth_api.transact(&mut self.state_db, env)?;
+                self.state_db.commit(res.state);
+
+                if let Some(pool_tx) = pool_txs.get(&transaction.hash) {
+                    Ok(f(&mut self, **pool_tx, block_number)?)
+                } else {
+                    Ok(Vec::new())
+                }
+            })
+            .collect::<eyre::Result<Vec<_>>>()?
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+
+        debug!(target: "uni-v3::fetcher", "completed block {} for pool {} with {} total ticks", block_number,pool_address, pool_states.len());
+
+        Ok(pool_states)
     }
 }

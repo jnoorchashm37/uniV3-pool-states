@@ -1,4 +1,4 @@
-use std::{fmt::Debug, path::Path, sync::Arc};
+use std::{collections::HashSet, fmt::Debug, path::Path, sync::Arc};
 
 use eyre::Context;
 
@@ -16,7 +16,9 @@ use reth_db::{
 };
 use reth_network_api::noop::NoopNetwork;
 use reth_node_ethereum::EthEvmConfig;
-use reth_primitives::{constants::ETHEREUM_BLOCK_GAS_LIMIT, MAINNET};
+use reth_primitives::{
+    constants::ETHEREUM_BLOCK_GAS_LIMIT, Address, SealedBlockWithSenders, TxHash, MAINNET,
+};
 use reth_provider::{
     providers::BlockchainProvider, DatabaseProvider, ProviderFactory, StateProvider,
 };
@@ -34,7 +36,10 @@ use reth_rpc::{
     DebugApi, EthApi, EthFilter, TraceApi,
 };
 use reth_rpc_api::EthApiServer;
-use reth_rpc_types::BlockId;
+use reth_rpc_types::{
+    trace::parity::{Action, TraceType},
+    BlockId,
+};
 use reth_tasks::{
     pool::{BlockingTaskGuard, BlockingTaskPool},
     TaskManager,
@@ -64,13 +69,17 @@ pub(crate) type RethDbProvider = DatabaseProvider<Tx<RO>>;
 
 pub struct RethDbApiClient {
     pub reth_api: RethApi,
+    pub reth_trace: RethTrace,
 }
 
 impl RethDbApiClient {
     pub async fn new(db_path: &str, handle: Handle) -> eyre::Result<Self> {
-        let (reth_api, _, _, _, _) = init(Path::new(db_path), handle)?;
+        let (reth_api, _, reth_trace, _, _) = init(Path::new(db_path), handle)?;
 
-        Ok(Self { reth_api })
+        Ok(Self {
+            reth_api,
+            reth_trace,
+        })
     }
 
     pub fn get_current_block(&self) -> eyre::Result<u64> {
@@ -90,6 +99,61 @@ impl RethDbApiClient {
     ) -> eyre::Result<StateProviderDatabase<Box<dyn StateProvider>>> {
         let state_provider = self.reth_api.state_at_block_id(block_number.into())?;
         Ok(StateProviderDatabase::new(state_provider))
+    }
+
+    pub async fn get_parent_block_with_signers(
+        &self,
+        block_number: u64,
+    ) -> eyre::Result<SealedBlockWithSenders> {
+        let block = self
+            .reth_api
+            .block_by_id_with_senders((block_number - 1).into())
+            .await?
+            .ok_or(eyre::ErrReport::msg(format!(
+                "no sealed block found for block {block_number}"
+            )))?;
+
+        Ok(block)
+    }
+
+    pub async fn get_transaction_traces_with_addresses(
+        &self,
+        addresses: &[Address],
+        block_number: u64,
+    ) -> eyre::Result<Vec<(Address, TxHash)>> {
+        let traces = self
+            .reth_trace
+            .replay_block_transactions(block_number.into(), HashSet::from([TraceType::Trace]))
+            .await?
+            .ok_or(eyre::ErrReport::msg(format!(
+                "no traces found for block {block_number}"
+            )))?;
+
+        let address_set = addresses.iter().collect::<HashSet<_>>();
+
+        let vals = traces
+            .into_iter()
+            .flat_map(|tx| {
+                tx.full_trace
+                    .trace
+                    .into_iter()
+                    .filter_map(|trace| match trace.action {
+                        Action::Call(call) => {
+                            if let Some(f) = address_set.get(&call.from) {
+                                Some((**f, tx.transaction_hash))
+                            } else if let Some(t) = address_set.get(&call.to) {
+                                Some((**t, tx.transaction_hash))
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
+        Ok(vals)
     }
 }
 

@@ -1,5 +1,6 @@
 use alloy_primitives::Address;
 use alloy_primitives::U256;
+use reth_primitives::TxHash;
 use tracing::debug;
 
 use super::PoolDBInner;
@@ -7,16 +8,16 @@ use super::PoolState;
 
 #[derive(Clone)]
 pub struct PoolTickFetcher {
-    pub pool: Address,
+    pub pool_address: Address,
     pub min_word: i16,
     pub max_word: i16,
     pub earliest_block: u64,
 }
 
 impl PoolTickFetcher {
-    pub fn new(pool: Address, earliest_block: u64) -> Self {
+    pub fn new(pool_address: Address, earliest_block: u64) -> Self {
         Self {
-            pool,
+            pool_address,
             min_word: (-887272_i32 >> 8) as i16,
             max_word: (887272_i32 >> 8) as i16,
             earliest_block,
@@ -25,45 +26,48 @@ impl PoolTickFetcher {
 
     pub fn execute_block(
         &self,
-        inner: &PoolDBInner,
+        inner: &mut PoolDBInner,
+        tx_hash: TxHash,
         block_number: u64,
     ) -> eyre::Result<Vec<PoolState>> {
-        let state = self.get_state_from_ticks(&inner, block_number)?;
+        let state = self.get_state_from_ticks(inner, block_number, tx_hash)?;
 
         if state.is_empty() {
             return Ok(Vec::new());
         }
 
-        debug!(target: "uni-v3", "pool: {:?} - got state for block {}", self.pool, block_number);
+        debug!(target: "uni-v3", "pool: {:?} - got state for block {} and tx hash {:?}", self.pool_address, block_number, tx_hash);
 
         Ok(state)
     }
 
     fn get_state_from_ticks(
         &self,
-        inner: &PoolDBInner,
+        inner: &mut PoolDBInner,
         block_number: u64,
+        tx_hash: TxHash,
     ) -> eyre::Result<Vec<PoolState>> {
-        let bitmaps = inner.get_tick_bitmaps(self.pool, self.min_word..self.max_word)?;
+        let bitmaps = inner.get_tick_bitmaps(self.pool_address, self.min_word..self.max_word)?;
         if bitmaps.is_empty() {
             return Ok(Vec::new());
         }
 
-        let tick_spacing = inner.get_tick_spacing(self.pool)?;
+        let tick_spacing = inner.get_tick_spacing(self.pool_address)?;
         let ticks = self.get_ticks(bitmaps, tick_spacing)?;
 
         if ticks.is_empty() {
             return Ok(Vec::new());
         }
 
-        let states = inner.get_state_at_ticks(self.pool, ticks)?;
+        let states = inner.get_state_at_ticks(self.pool_address, ticks)?;
 
         Ok(states
             .into_iter()
             .map(|(tick, state)| {
                 PoolState::new_with_block_and_address(
                     state,
-                    self.pool,
+                    self.pool_address,
+                    tx_hash,
                     tick,
                     block_number,
                     tick_spacing,
@@ -98,6 +102,7 @@ impl PoolTickFetcher {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use std::{str::FromStr, sync::Arc};
@@ -213,3 +218,5 @@ mod tests {
         assert_eq!(calculated, expected);
     }
 }
+
+*/

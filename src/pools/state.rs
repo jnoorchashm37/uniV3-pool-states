@@ -1,5 +1,6 @@
 use alloy_primitives::{Address, U256};
 use clickhouse::Row;
+use reth_primitives::TxHash;
 use serde::{Deserialize, Serialize};
 
 use crate::pools::UniswapV3;
@@ -7,6 +8,7 @@ use crate::pools::UniswapV3;
 #[derive(Debug, Clone, Serialize, Deserialize, Row, PartialEq)]
 pub struct PoolState {
     pub block_number: u64,
+    pub tx_hash: String,
     pub pool_address: String,
     pub tick: i32,
     pub tick_spacing: i32,
@@ -27,12 +29,14 @@ impl PoolState {
     pub fn new_with_block_and_address(
         tick_return: UniswapV3::ticksReturn,
         address: Address,
+        tx_hash: TxHash,
         tick: i32,
         block_number: u64,
         tick_spacing: i32,
     ) -> Self {
         Self {
             block_number,
+            tx_hash: format!("{:?}", tx_hash).to_lowercase(),
             pool_address: format!("{:?}", address).to_lowercase(),
             tick,
             tick_spacing,
