@@ -76,7 +76,7 @@ impl<'a> PoolCaller<'a> {
 
         let pool_txs = self
             .node
-            .get_transaction_traces_with_addresses((&addresses), self.block_number)
+            .get_transaction_traces_with_addresses(&addresses, self.block_number)
             .await?;
 
         let state = execute_on_threadpool(|| {
