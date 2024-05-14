@@ -34,7 +34,7 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
     info!(target: "uni-v3", "starting block range {min_block} - {current_block} for {} pools",pools.len());
 
     let (tx, rx) = unbounded_channel();
-    let buffered_db = BufferedClickhouse::new(db, rx, 100000);
+    let buffered_db = BufferedClickhouse::new(db, rx, 1000000);
     info!(target: "uni-v3", "created buffered clickhouse connection");
 
     let this_handle = handle.clone();
@@ -46,7 +46,7 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
         node,
         tx,
         Box::leak(Box::new(pools)),
-        min_block,
+        12405000,
         current_block,
         handle.clone(),
     );
