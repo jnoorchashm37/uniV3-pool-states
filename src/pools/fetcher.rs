@@ -63,6 +63,11 @@ impl<'a> PoolCaller<'a> {
             .into_transactions_ecrecovered()
             .collect::<Vec<_>>();
 
+        if parent_block_txs.is_empty() {
+            debug!(target: "uni-v3::fetcher", "no transactions found in block {} for {} pools", self.block_number,self.pools.len());
+            return Ok(());
+        }
+
         let addresses = self
             .pools
             .iter()
