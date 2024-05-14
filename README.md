@@ -18,4 +18,4 @@ Currently supports the following pools:
 
 
 ### Note
-the `MAX_TASKS` in `pools/handler.rs` consumes a lot of memory (~50GB for 25000 tasks), lower it if necessary
+the `MAX_TASKS` in `pools/handler.rs` consumes a lot of memory (10-50GB for 25000 tasks), lower it if necessary
