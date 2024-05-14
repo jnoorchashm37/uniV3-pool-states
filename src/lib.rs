@@ -3,7 +3,7 @@ use handler::PoolHandler;
 use node::RethDbApiClient;
 use std::sync::{Arc, OnceLock};
 use tokio::runtime::Handle;
-use tracing::Level;
+use tracing::{info, Level};
 
 pub mod aux;
 pub mod db;
@@ -26,6 +26,8 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
     let current_block = node.get_current_block()?;
 
     let (min_block, pools) = get_initial_pools(db).await?;
+
+    info!(target: "uni-v3", "starting block range {min_block} - {current_block} for {} pools",pools.len());
 
     let handler = PoolHandler::new(
         node,

@@ -54,12 +54,9 @@ impl Future for PoolHandler {
             if this.end_block >= this.current_block {
                 let caller =
                     PoolCaller::new(this.node.clone(), this.db, this.pools, this.current_block);
-                let this_handle = this.handle.clone();
-                this.futs.push(
-                    this.handle
-                        .clone()
-                        .spawn_blocking(move || this_handle.block_on(caller.execute_block())),
-                );
+                //let this_handle = this.handle.clone();
+                this.futs
+                    .push(this.handle.clone().spawn(caller.execute_block()));
                 this.current_block += 1;
             }
 
@@ -67,16 +64,13 @@ impl Future for PoolHandler {
                 if let Ok(Err((b, e))) = val {
                     error!(target: "uni-v3", "failed to get block {b}, retrying - {:?}", e);
                     let caller = PoolCaller::new(this.node.clone(), this.db, this.pools, b);
-                    let this_handle = this.handle.clone();
-                    this.futs.push(
-                        this.handle
-                            .clone()
-                            .spawn_blocking(move || this_handle.block_on(caller.execute_block())),
-                    );
+                    // let this_handle = this.handle.clone();
+                    this.futs
+                        .push(this.handle.clone().spawn(caller.execute_block()));
                 }
             }
 
-            if this.futs.is_empty() && this.end_block <= this.current_block {
+            if this.futs.is_empty() && this.end_block < this.current_block {
                 return Poll::Ready(());
             }
 
