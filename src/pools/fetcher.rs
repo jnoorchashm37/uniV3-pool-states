@@ -235,6 +235,7 @@ impl PoolDBInner {
                     self.block_env.clone(),
                     tx,
                 );
+                println!("TX: {:?}", tx);
                 let (res, _) = self.node.reth_api.transact(&mut self.state_db, env)?;
                 self.state_db.commit(res.state);
 
