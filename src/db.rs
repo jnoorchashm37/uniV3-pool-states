@@ -115,6 +115,7 @@ impl Future for BufferedClickhouse {
                 this.queue.extend(vals);
             } else {
                 if this.queue.is_empty() && this.inserting.is_empty() && this.fut.is_none() {
+                    info!(target: "uni-v3", "shutting down clickhouse connection");
                     return Poll::Ready(());
                 } else {
                     is_finished = true;
