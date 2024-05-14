@@ -8032,6 +8032,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "alloy-rpc-types",
+ "alloy-rpc-types-trace",
  "alloy-sol-macro",
  "alloy-sol-types",
  "async-trait",

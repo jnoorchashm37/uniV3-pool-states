@@ -23,6 +23,7 @@ reth-api-libmdbx = { git = "https://github.com/jnoorchashm37/reth-api-libmdbx" }
 alloy-sol-macro = { version = "0.7.0", features = ["json"] }
 alloy-sol-types = { version = "0.7.0", features = ["json"] }
 alloy-rpc-types = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
+alloy-rpc-types-trace = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
 alloy-primitives = { version = "0.7.0", features = ["rlp"] }
 
 # error handling
