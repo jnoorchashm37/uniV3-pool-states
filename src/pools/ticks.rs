@@ -44,7 +44,7 @@ impl PoolTickFetcher {
         inner: &PoolDBInner,
         block_number: u64,
     ) -> eyre::Result<Vec<PoolState>> {
-        let bitmaps = self.get_bitmaps(inner)?;
+        let bitmaps = inner.get_tick_bitmaps(self.pool, self.min_word..self.max_word)?;
         if bitmaps.is_empty() {
             return Ok(Vec::new());
         }
@@ -89,21 +89,12 @@ impl PoolTickFetcher {
                         })
                         .collect::<Vec<_>>()
                 } else {
-                    vec![]
+                    Vec::new()
                 }
             })
             .collect::<Vec<_>>();
 
         Ok(vals)
-    }
-
-    fn get_bitmaps(&self, inner: &PoolDBInner) -> eyre::Result<Vec<(i16, U256)>> {
-        let range = self.min_word..self.max_word;
-        if range.is_empty() {
-            Ok(Vec::new())
-        } else {
-            Ok(inner.get_tick_bitmaps(self.pool, range)?)
-        }
     }
 }
 
