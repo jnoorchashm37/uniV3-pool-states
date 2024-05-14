@@ -58,7 +58,7 @@ impl<'a> PoolCaller<'a> {
         let pool_inner = PoolDBInner::new(self.node.clone(), self.block_number).await?;
         let parent_block_txs = self
             .node
-            .get_parent_block_with_signers(self.block_number)
+            .get_block_with_signers(self.block_number)
             .await?
             .into_transactions_ecrecovered()
             .collect::<Vec<_>>();

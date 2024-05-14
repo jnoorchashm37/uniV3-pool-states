@@ -101,13 +101,13 @@ impl RethDbApiClient {
         Ok(StateProviderDatabase::new(state_provider))
     }
 
-    pub async fn get_parent_block_with_signers(
+    pub async fn get_block_with_signers(
         &self,
         block_number: u64,
     ) -> eyre::Result<SealedBlockWithSenders> {
         let block = self
             .reth_api
-            .block_by_id_with_senders((block_number - 1).into())
+            .block_by_id_with_senders(block_number.into())
             .await?
             .ok_or(eyre::ErrReport::msg(format!(
                 "no sealed block found for block {block_number}"
