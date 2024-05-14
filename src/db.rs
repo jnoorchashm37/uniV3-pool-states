@@ -11,7 +11,6 @@ use db_interfaces::{
     clickhouse_dbms, remote_clickhouse_table, Database,
 };
 use futures::{Future, FutureExt};
-use itertools::Itertools;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::{error, info};
 
@@ -136,7 +135,7 @@ impl Future for BufferedClickhouse {
                 this.fut = Some(f)
             }
         } else if this.queue.len() >= this.insert_size || is_finished {
-            this.inserting = this.queue.drain(..).collect_vec();
+            this.inserting = this.queue.drain(..).collect::<Vec<_>>();
 
             let db = this.db.clone();
             this.fut = Some(Box::pin(Self::insert(db, this.inserting.clone())));
