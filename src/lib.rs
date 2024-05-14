@@ -44,10 +44,7 @@ pub async fn run(handle: Handle) -> eyre::Result<()> {
 static RAYON_PRICING_THREADPOOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
 
 pub fn init_threadpool() {
-    let threadpool = rayon::ThreadPoolBuilder::new()
-        .num_threads(256)
-        .build()
-        .unwrap();
+    let threadpool = rayon::ThreadPoolBuilder::new().build().unwrap();
 
     let _ = RAYON_PRICING_THREADPOOL.set(threadpool);
 }
