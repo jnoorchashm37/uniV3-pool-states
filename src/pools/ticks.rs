@@ -135,7 +135,7 @@ mod tests {
         let expected = vec![
             PoolState {
                 block_number: 12369879,
-                tx_hash: tx_hash.clone(),
+                tx_hash: format!("{:?}", tx_hash).to_lowercase(),
                 pool_address: "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8".to_string(),
                 tick: -84120,
                 tick_spacing: 60,
@@ -150,7 +150,8 @@ mod tests {
             },
             PoolState {
                 block_number: 12369879,
-                tx_hash,
+
+                tx_hash: format!("{:?}", tx_hash).to_lowercase(),
                 pool_address: "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8".to_string(),
                 tick: -78240,
                 tick_spacing: 60,
