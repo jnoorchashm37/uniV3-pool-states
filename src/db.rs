@@ -1,6 +1,7 @@
 use std::{
     pin::Pin,
     str::FromStr,
+    sync::Arc,
     task::{Context, Poll},
 };
 
