@@ -13,7 +13,7 @@ use reth_revm::{
     DatabaseCommit,
 };
 use reth_rpc::eth::EthTransactions;
-use std::{collections::HashSet, ops::Range, sync::Arc};
+use std::{collections::HashSet, ops::Range, str::FromStr, sync::Arc};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::{debug, info};
 
@@ -248,19 +248,31 @@ impl PoolDBInner {
                     tx,
                 );
 
+                let t = TxHash::from_str(
+                    "0x2d9b768e7b02c6cba2e630e777fa1b839574865b7b72291678f6ffc1a6fff014",
+                )
+                .unwrap();
+                let a = Address::from_str("0xdd0d6c26a03d6f6541471d44179f56d478f50f6b").unwrap();
+                if transaction.hash == t {
+                    println!("{:?}", self.state_db.accounts.get(&a));
+                }
+
                 let (res, _) = self
                     .node
                     .reth_api
                     .eth_api
                     .transact(&mut self.state_db, env)?;
 
+                self.state_db.commit(res.state);
+
                 if res.result.is_success() {
-                    self.state_db.commit(res.state);
                     if let Some(pool_tx) = pool_txs.get(&transaction.hash) {
                         return Ok(f(&mut self, block_number, *pool_tx, tx_index as u64)?);
                     }
                 } else {
-                    println!("{:?}", transaction.hash);
+                    if transaction.hash == t {
+                        println!("{:?}", self.state_db.accounts.get(&a));
+                    }
                 }
 
                 Ok(Vec::new())
