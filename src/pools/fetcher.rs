@@ -254,7 +254,7 @@ impl PoolDBInner {
                     .eth_api
                     .transact(&mut self.state_db, env)
                     .map_err(|e| {
-                        eyre::ErrReport::msg(format!("{:?} - {:?}", e, transaction.tx_hash))
+                        eyre::ErrReport::msg(format!("{:?} - {:?}", e, transaction.hash))
                     })?;
 
                 self.state_db.commit(res.state);
