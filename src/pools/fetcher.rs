@@ -248,22 +248,14 @@ impl PoolDBInner {
                     tx,
                 );
 
-                let t = TxHash::from_str(
-                    "0x2d9b768e7b02c6cba2e630e777fa1b839574865b7b72291678f6ffc1a6fff014",
-                )
-                .unwrap();
-                let a = Address::from_str("0xdd0d6c26a03d6f6541471d44179f56d478f50f6b").unwrap();
-                if transaction.hash == t {
-                    println!("TX: {:?}\n\n", self.state_db.load_account(a));
-                    let states = f(&mut self, block_number, transaction.hash, tx_index as u64)?;
-                    println!("POOL: {:?}\n", states);
-                }
-
                 let (res, _) = self
                     .node
                     .reth_api
                     .eth_api
-                    .transact(&mut self.state_db, env)?;
+                    .transact(&mut self.state_db, env)
+                    .map_err(|e| {
+                        eyre::ErrReport::msg(format!("{:?} - {:?}", e, transaction.tx_hash))
+                    })?;
 
                 self.state_db.commit(res.state);
 
@@ -272,11 +264,7 @@ impl PoolDBInner {
                         return Ok(f(&mut self, block_number, *pool_tx, tx_index as u64)?);
                     }
                 } else {
-                    if transaction.hash == t {
-                        println!("TX {:?}\n\n", self.state_db.accounts.get(&a));
-                        let states = f(&mut self, block_number, transaction.hash, tx_index as u64)?;
-                        println!("POOL: {:?}\n", states);
-                    }
+                    debug!(target: "uni-v3::fetcher", "tx reverted in sim: {:?}", transaction.hash);
                 }
 
                 Ok(Vec::new())
