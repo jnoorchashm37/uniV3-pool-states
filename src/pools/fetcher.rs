@@ -255,7 +255,7 @@ impl PoolDBInner {
                 let a = Address::from_str("0xdd0d6c26a03d6f6541471d44179f56d478f50f6b").unwrap();
                 if transaction.hash == t {
                     println!("TX: {:?}\n\n", self.state_db.load_account(a));
-                    let states = f(&mut self, block_number, pool_tx, tx_index as u64)?;
+                    let states = f(&mut self, block_number, transaction.hash, tx_index as u64)?;
                     println!("POOL: {:?}\n", states);
                 }
 
@@ -274,7 +274,7 @@ impl PoolDBInner {
                 } else {
                     if transaction.hash == t {
                         println!("TX {:?}\n\n", self.state_db.accounts.get(&a));
-                        let states = f(&mut self, block_number, pool_tx, tx_index as u64)?;
+                        let states = f(&mut self, block_number, transaction.hash, tx_index as u64)?;
                         println!("POOL: {:?}\n", states);
                     }
                 }
