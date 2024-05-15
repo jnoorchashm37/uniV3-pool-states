@@ -248,24 +248,26 @@ impl PoolDBInner {
                     tx,
                 );
 
-                let (res, _) = self
+                if let Ok((res, _)) = self
                     .node
                     .reth_api
                     .eth_api
                     .transact(&mut self.state_db, env)
                     .map_err(|e| {
-                        eyre::ErrReport::msg(format!("{:?} - {:?}", e, transaction.hash))
-                    })?;
+                        eyre::ErrReport::msg(format!("{:?} - {:?}", transaction.hash, e))
+                    }) {
+                        self.state_db.commit(res.state);
 
-                self.state_db.commit(res.state);
-
-                if res.result.is_success() {
-                    if let Some(pool_tx) = pool_txs.get(&transaction.hash) {
-                        return Ok(f(&mut self, block_number, *pool_tx, tx_index as u64)?);
+                        if res.result.is_success() {
+                            if let Some(pool_tx) = pool_txs.get(&transaction.hash) {
+                                return Ok(f(&mut self, block_number, *pool_tx, tx_index as u64)?);
+                            }
+                        } else {
+                            debug!(target: "uni-v3::fetcher", "tx reverted in sim: {:?}", transaction.hash);
+                        }
                     }
-                } else {
-                    debug!(target: "uni-v3::fetcher", "tx reverted in sim: {:?}", transaction.hash);
-                }
+
+
 
                 Ok(Vec::new())
             })
