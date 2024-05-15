@@ -253,7 +253,12 @@ impl PoolDBInner {
                     .reth_api
                     .eth_api
                     .transact(&mut self.state_db, env)?;
-                self.state_db.commit(res.state);
+
+                if !res.result.is_success() {
+                    println!("{:?}", transaction.hash);
+                } else {
+                    self.state_db.commit(res.state);
+                }
 
                 if let Some(pool_tx) = pool_txs.get(&transaction.hash) {
                     Ok(f(&mut self, block_number, *pool_tx, tx_index as u64)?)
