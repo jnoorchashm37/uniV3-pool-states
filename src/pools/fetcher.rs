@@ -254,17 +254,16 @@ impl PoolDBInner {
                     .eth_api
                     .transact(&mut self.state_db, env)?;
 
-                if !res.result.is_success() {
-                    println!("{:?}", transaction.hash);
-                } else {
+                if res.result.is_success() {
                     self.state_db.commit(res.state);
+                    if let Some(pool_tx) = pool_txs.get(&transaction.hash) {
+                        return Ok(f(&mut self, block_number, *pool_tx, tx_index as u64)?);
+                    }
+                } else {
+                    println!("{:?}", transaction.hash);
                 }
 
-                if let Some(pool_tx) = pool_txs.get(&transaction.hash) {
-                    Ok(f(&mut self, block_number, *pool_tx, tx_index as u64)?)
-                } else {
-                    Ok(Vec::new())
-                }
+                Ok(Vec::new())
             })
             .collect::<eyre::Result<Vec<_>>>()?
             .into_iter()
