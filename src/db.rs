@@ -51,7 +51,9 @@ address = '0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8' OR
 address = '0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8' OR 
 address = '0x11950d141ecb863f01007add7d1a342041227b58' OR 
 address = '0x9db9e0e53058c89e5b94e29621a205198648425b' OR 
-address = '0xe8c6c9227491c0a8156a0106a0204d881bb7e531'
+address = '0xe8c6c9227491c0a8156a0106a0204d881bb7e531' OR
+address = '0x4585fe77225b41b697c938b018e2ac67ac5a20c0' OR 
+address = '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640'
 ";
 
 pub async fn get_initial_pools(
