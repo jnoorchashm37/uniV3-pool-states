@@ -175,6 +175,10 @@ mod tests {
             unlocked: true,
         });
 
+        for c in calculated {
+            println!("{:?}", c);
+        }
+
         assert!(calculated.contains(&expected));
     }
 }
