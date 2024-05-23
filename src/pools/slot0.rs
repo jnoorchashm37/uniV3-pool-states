@@ -90,31 +90,6 @@ impl PoolFetcher for PoolSlot0Fetcher {
     }
 }
 
-/*
-
-
-SELECT
-    exchange,
-    'ETH-USD' AS eth,
-    any(timestamp) AS time,
-    any((ask_price+bid_price)/2) AS eth_price
-FROM cex.normalized_quotes
-WHERE symbol LIKE 'ETH%' AND (symbol LIKE '%USDC' OR symbol LIKE '%USDT') AND timestamp >= (1702746431) * 1000000 AND timestamp < (1702746431 + 12) * 1000000
-GROUP BY exchange
-
-
-1288329390478420389134906353335981^2 / 2^192
-
-
-264525828.74 * 10
-
-
-1/.00026
-
-ETH/USDC
-
-*/
-
 #[cfg(test)]
 mod tests {
     use std::{str::FromStr, sync::Arc};
@@ -174,10 +149,6 @@ mod tests {
             fee_protocol: 0,
             unlocked: true,
         });
-
-        for c in calculated.iter() {
-            println!("{:?}", c);
-        }
 
         assert!(calculated.contains(&expected));
     }
