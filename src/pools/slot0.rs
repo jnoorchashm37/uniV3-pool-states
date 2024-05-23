@@ -175,7 +175,7 @@ mod tests {
             unlocked: true,
         });
 
-        for c in calculated {
+        for c in calculated.iter() {
             println!("{:?}", c);
         }
 
