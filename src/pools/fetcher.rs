@@ -222,7 +222,7 @@ impl PoolDBInner {
                 gas_refunded: _,
                 logs: _,
                 output,
-            } => Ok(C::abi_decode_returns(output.data(), false)?),
+            } => Ok(C::abi_decode_returns(output.data(), true)?),
             reth_revm::primitives::ExecutionResult::Revert { .. } => {
                 Err(eyre::ErrReport::msg("Revert"))
             }
