@@ -53,6 +53,7 @@ async fn execute(executor: TaskExecutor) -> eyre::Result<()> {
 
     let mut pool_fetchers = Vec::new();
     if cli.slot0 {
+        info!(target: "uniV3::slot0", "enabled slot0 fetcher");
         let slot0_pools = pools.iter().map(|pool| {
             Arc::new(Box::new(PoolSlot0Fetcher::new(
                 pool.pool_address,
@@ -65,6 +66,7 @@ async fn execute(executor: TaskExecutor) -> eyre::Result<()> {
     }
 
     if cli.tick_info {
+        info!(target: "uniV3::tick-info", "enabled tick-info fetcher");
         let tick_info_pools = pools.iter().map(|pool| {
             Arc::new(
                 Box::new(PoolTickFetcher::new(pool.pool_address, pool.creation_block))
