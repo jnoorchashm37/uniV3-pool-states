@@ -1,6 +1,7 @@
-use alloy_primitives::TxHash;
 use alloy_primitives::{Address, U256};
+use alloy_primitives::{TxHash, U160};
 use clickhouse::Row;
+use malachite::Rational;
 use serde::{Deserialize, Serialize};
 
 use crate::pools::UniswapV3;
@@ -53,6 +54,21 @@ impl PoolState {
             initialized: tick_return.initialized,
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Row, PartialEq)]
+pub struct PoolPrice {
+    pub block_number: u64,
+    pub pool_address: String,
+    pub price: f64,
+}
+
+pub fn u160_to_natural(num: U160) -> Natural {
+    Natural::from_limbs_asc(&num.into_limbs())
+}
+
+pub fn u256_to_natural(num: U256) -> Natural {
+    Natural::from_limbs_asc(&num.into_limbs())
 }
 
 mod u256 {

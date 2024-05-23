@@ -77,3 +77,49 @@ where
         .expect("threadpool not initialized")
         .install(op)
 }
+
+pub async fn run2(handle: Handle) -> eyre::Result<()> {
+    aux::init(vec![aux::stdout(
+        format!("uni-v3={}", Level::INFO).parse()?,
+    )]);
+
+    init_threadpool();
+    info!(target: "uni-v3", "initialized rayon threadpool");
+
+    let reth_db_path = std::env::var("RETH_DB_PATH").expect("no 'RETH_DB_PATH' in .env");
+    let node = Arc::new(EthNodeApi::new(&reth_db_path, handle.clone())?);
+    info!(target: "uni-v3", "spawned eth node connection");
+
+    let current_block = node.get_current_block()?;
+
+    let db = Arc::new(spawn_clickhouse_db());
+    info!(target: "uni-v3", "started clickhouse db connection");
+
+    let (min_block, pools) = get_initial_pools(&db).await?;
+    info!(target: "uni-v3", "starting block range {min_block} - {current_block} for {} pools",pools.len());
+
+    let (tx, rx) = unbounded_channel();
+    let buffered_db = BufferedClickhouse::new(db, rx, 100000);
+    info!(target: "uni-v3", "created buffered clickhouse connection");
+
+    let this_handle = handle.clone();
+    let buffered_db_handle = handle
+        .clone()
+        .spawn_blocking(move || this_handle.block_on(buffered_db));
+
+    let handler = PoolHandler::new(
+        node,
+        tx.clone(),
+        Box::leak(Box::new(pools)),
+        min_block,
+        current_block,
+        handle.clone(),
+    );
+
+    handler.await;
+
+    drop(tx);
+    buffered_db_handle.await?;
+
+    Ok(())
+}

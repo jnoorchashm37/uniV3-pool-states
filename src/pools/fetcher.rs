@@ -3,6 +3,7 @@ use alloy_primitives::Address;
 use alloy_sol_types::SolCall;
 
 use alloy_primitives::{TxHash, U256};
+use malachite::Natural;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use reth_primitives::{revm::env::tx_env_with_recovered, TransactionSignedEcRecovered};
 use reth_provider::StateProvider;
@@ -17,7 +18,9 @@ use std::{collections::HashSet, ops::Range, str::FromStr, sync::Arc};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::{debug, info};
 
-use super::{PoolState, PoolTickFetcher, UniswapV3};
+use super::{
+    u160_to_natural, u256_to_natural, u256_to_rational, PoolState, PoolTickFetcher, UniswapV3,
+};
 
 pub struct PoolCaller<'a> {
     pub node: Arc<EthNodeApi>,
@@ -190,6 +193,43 @@ impl PoolDBInner {
         let request = UniswapV3::tickSpacingCall {};
         Ok(self.transact_call(request, to)?._0)
     }
+
+    pub fn get_price(&mut self, to: Address) -> eyre::Result<PoolPrice> {
+        let call = UniswapV3::slot0Call {};
+
+        let slot0 = self.transact_call(call, to)?;
+
+        let sqrt_price = u160_to_natural(slot0.sqrtPriceX96);
+
+        let non_adj_price = Rational::from_naturals(sqrt_price.pow(2), Natural::from(2u8).pow(196));
+
+        Ok(PoolPrice::default())
+    }
+
+    /*
+
+
+    SELECT
+        exchange,
+        'ETH-USD' AS eth,
+        any(timestamp) AS time,
+        any((ask_price+bid_price)/2) AS eth_price
+    FROM cex.normalized_quotes
+    WHERE symbol LIKE 'ETH%' AND (symbol LIKE '%USDC' OR symbol LIKE '%USDT') AND timestamp >= (1702746431) * 1000000 AND timestamp < (1702746431 + 12) * 1000000
+    GROUP BY exchange
+
+
+    1288329390478420389134906353335981^2 / 2^192
+
+
+    264525828.74 * 10
+
+
+    1/.00026
+
+    ETH/USDC
+
+    */
 
     fn transact_call<C: SolCall>(&mut self, call: C, to: Address) -> eyre::Result<C::Return> {
         let mut env = self.env.clone();
