@@ -22,6 +22,8 @@ pub mod db;
 
 mod cli;
 
+pub mod const_sql;
+
 pub mod node;
 pub mod pools;
 pub mod utils;
@@ -53,7 +55,7 @@ async fn execute(executor: TaskExecutor) -> eyre::Result<()> {
     if cli.slot0 {
         let slot0_pools = pools.iter().map(|pool| {
             Arc::new(Box::new(PoolSlot0Fetcher::new(
-                pool.address,
+                pool.pool_address,
                 TokenInfo::new(pool.token0_address, pool.token0_decimals),
                 TokenInfo::new(pool.token1_address, pool.token1_decimals),
                 pool.creation_block,
@@ -65,7 +67,7 @@ async fn execute(executor: TaskExecutor) -> eyre::Result<()> {
     if cli.tick_info {
         let tick_info_pools = pools.iter().map(|pool| {
             Arc::new(
-                Box::new(PoolTickFetcher::new(pool.address, pool.creation_block))
+                Box::new(PoolTickFetcher::new(pool.pool_address, pool.creation_block))
                     as Box<dyn PoolFetcher>,
             )
         });

@@ -20,7 +20,7 @@ pub trait PoolFetcher: Send + Sync {
         block_number: u64,
         tx_hash: alloy_primitives::TxHash,
         tx_index: u64,
-    ) -> eyre::Result<PoolData>;
+    ) -> eyre::Result<Vec<PoolData>>;
 
     fn earliest_block(&self) -> u64;
 

@@ -118,8 +118,8 @@ impl PoolSlot0 {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum PoolData {
-    TickInfo(Vec<PoolTickInfo>),
-    Slot0(Vec<PoolSlot0>),
+    TickInfo(PoolTickInfo),
+    Slot0(PoolSlot0),
 }
 
 impl PoolData {
@@ -128,8 +128,8 @@ impl PoolData {
         let mut slot0 = Vec::new();
 
         values.into_iter().for_each(|v| match v {
-            PoolData::TickInfo(vals) => tick_info.extend(vals),
-            PoolData::Slot0(vals) => slot0.extend(vals),
+            PoolData::TickInfo(val) => tick_info.push(val),
+            PoolData::Slot0(val) => slot0.push(val),
         });
 
         (tick_info, slot0)
@@ -144,12 +144,6 @@ macro_rules! to_pool_data {
 
                 impl From<[<Pool $dt>]> for PoolData {
                     fn from(value: [<Pool $dt>]) -> PoolData {
-                        PoolData::$dt(vec![value])
-                    }
-                }
-
-                impl From<Vec<[<Pool $dt>]>> for PoolData {
-                    fn from(value: Vec<[<Pool $dt>]>) -> PoolData {
                         PoolData::$dt(value)
                     }
                 }

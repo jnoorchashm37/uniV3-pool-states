@@ -60,7 +60,7 @@ impl PoolFetcher for PoolSlot0Fetcher {
         block_number: u64,
         tx_hash: TxHash,
         tx_index: u64,
-    ) -> eyre::Result<PoolData> {
+    ) -> eyre::Result<Vec<PoolData>> {
         let slot0 = inner.get_slot0(self.pool_address)?;
 
         let calculated_price = self.calculate_price(slot0.sqrtPriceX96);
@@ -78,7 +78,7 @@ impl PoolFetcher for PoolSlot0Fetcher {
 
         debug!(target: "uni-v3::data::slot0", "pool: {:?} - got slot0 for block {} and tx hash {:?}", self.pool_address, block_number, tx_hash);
 
-        Ok(data.into())
+        Ok(vec![data.into()])
     }
 
     fn earliest_block(&self) -> u64 {
@@ -114,3 +114,63 @@ GROUP BY exchange
 ETH/USDC
 
 */
+
+#[cfg(test)]
+mod tests {
+    use std::{str::FromStr, sync::Arc};
+
+    use crate::node::EthNodeApi;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_slot0() {
+        dotenv::dotenv().ok();
+
+        let reth_db_path = std::env::var("RETH_DB_PATH").expect("no 'RETH_DB_PATH' in .env");
+        let node = EthNodeApi::new(&reth_db_path, tokio::runtime::Handle::current()).unwrap();
+
+        let mut pool_inner = PoolDBInner::new(Arc::new(node), 12369879).await.unwrap();
+
+        let pool_address = Address::from_str("0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640").unwrap();
+        let token0 = Address::from_str("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48").unwrap();
+        let token0_decimals = 6;
+
+        let token1 = Address::from_str("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").unwrap();
+        let token1_decimals = 18;
+
+        let test_ticker = PoolSlot0Fetcher::new(
+            pool_address,
+            TokenInfo::new(token0, token0_decimals),
+            TokenInfo::new(token1, token1_decimals),
+            12376729,
+        );
+
+        let tx_hash =
+            TxHash::from_str("0x7f96b7c6186be132d7032ee9e42221250bf9720b997b0905447a8a73513c51d8")
+                .unwrap();
+        let calculated = test_ticker
+            .execute_block(&mut pool_inner, 19933988, tx_hash, 88)
+            .unwrap();
+        let expected = vec![PoolData::Slot0(PoolSlot0 {
+            block_number: 19933988,
+            pool_address,
+            tx_hash,
+            tx_index: 253,
+            tick: 193887,
+            token0,
+            token0_decimals,
+            token1,
+            token1_decimals,
+            sqrt_price_x96: U256::from(1284929393637281108785461745518480u128),
+            calculated_price: .00006,
+            observation_index: 125,
+            observation_cardinality: 723,
+            observation_cardinality_next: 723,
+            fee_protocol: 0,
+            unlocked: true,
+        })];
+
+        assert_eq!(calculated, expected);
+    }
+}

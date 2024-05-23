@@ -95,16 +95,16 @@ impl PoolFetcher for PoolTickFetcher {
         block_number: u64,
         tx_hash: TxHash,
         tx_index: u64,
-    ) -> eyre::Result<PoolData> {
+    ) -> eyre::Result<Vec<PoolData>> {
         let state = self.get_state_from_ticks(inner, block_number, tx_hash, tx_index)?;
 
         if state.is_empty() {
-            return Ok(PoolData::TickInfo(Vec::new()));
+            return Ok(Vec::new());
         }
 
         debug!(target: "uni-v3::data::tick-info", "pool: {:?} - got state for block {} and tx hash {:?}", self.pool_address, block_number, tx_hash);
 
-        Ok(state.into())
+        Ok(state.into_iter().map(Into::into).collect())
     }
 
     fn earliest_block(&self) -> u64 {
@@ -145,7 +145,7 @@ mod tests {
             .execute_block(&mut pool_inner, 12369879, tx_hash, 253)
             .unwrap();
         let expected = vec![
-            PoolTickInfo {
+            PoolData::TickInfo(PoolTickInfo {
                 block_number: 12369879,
                 pool_address: Address::from_str("0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8")
                     .unwrap(),
@@ -161,8 +161,8 @@ mod tests {
                 seconds_per_liquidity_outside_x128: U256::from(0u64),
                 seconds_outside: 1620159368,
                 initialized: true,
-            },
-            PoolTickInfo {
+            }),
+            PoolData::TickInfo(PoolTickInfo {
                 block_number: 12369879,
                 pool_address: Address::from_str("0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8")
                     .unwrap(),
@@ -178,9 +178,9 @@ mod tests {
                 seconds_per_liquidity_outside_x128: U256::from(0u64),
                 seconds_outside: 0,
                 initialized: true,
-            },
+            }),
         ];
 
-        assert_eq!(calculated, PoolData::TickInfo(expected));
+        assert_eq!(calculated, expected);
     }
 }

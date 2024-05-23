@@ -3,7 +3,7 @@ use alloy_primitives::Address;
 use alloy_sol_types::SolCall;
 use reth_primitives::revm::env::tx_env_with_recovered;
 
-use super::{PoolData, PoolFetcher, PoolTickFetcher, PoolTickInfo, UniswapV3};
+use super::{PoolData, PoolFetcher, UniswapV3};
 
 use alloy_primitives::{TxHash, U256};
 
@@ -242,7 +242,7 @@ impl PoolDBInner {
         f: F,
     ) -> eyre::Result<Vec<PoolData>>
     where
-        F: Fn(&mut PoolDBInner, u64, TxHash, u64) -> eyre::Result<PoolData>,
+        F: Fn(&mut PoolDBInner, u64, TxHash, u64) -> eyre::Result<Vec<PoolData>>,
     {
         let pool_states = parent_block_txs
             .iter()
@@ -281,7 +281,7 @@ impl PoolDBInner {
             })
             .collect::<eyre::Result<Vec<_>>>()?
             .into_iter()
-            .flatten()
+            .flatten().flatten()
             .collect::<Vec<_>>();
 
         debug!(target: "uni-v3::fetcher", "completed block {} for pool {} with {} total ticks", block_number,pool_address, pool_states.len());
