@@ -76,7 +76,7 @@ impl PoolFetcher for PoolSlot0Fetcher {
             calculated_price,
         );
 
-        debug!(target: "UniV3::data::slot0", "pool: {:?} - got slot0 for block {} and tx hash {:?}", self.pool_address, block_number, tx_hash);
+        debug!(target: "uniV3::data::slot0", "pool: {:?} - got slot0 for block {} and tx hash {:?}", self.pool_address, block_number, tx_hash);
 
         Ok(vec![data.into()])
     }

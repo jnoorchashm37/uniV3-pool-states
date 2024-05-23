@@ -64,7 +64,7 @@ impl PoolCaller {
             .collect::<Vec<_>>();
 
         if parent_block_txs.is_empty() {
-            debug!(target: "UniV3::fetcher", "no transactions found in block {} for {} pools", self.block_number,self.pools.len());
+            debug!(target: "uniV3::fetcher", "no transactions found in block {} for {} pools", self.block_number,self.pools.len());
             return Ok(());
         }
 
@@ -81,7 +81,7 @@ impl PoolCaller {
 
         let state =
             execute_on_threadpool(|| self.run_cycle(pool_inner, &parent_block_txs, &pool_txs))?;
-        info!(target: "UniV3::fetcher", "completed block {} for {} pools with {} total values", self.block_number,self.pools.len(), state.len());
+        info!(target: "uniV3::fetcher", "completed block {} for {} pools with {} total values", self.block_number,self.pools.len(), state.len());
 
         self.db_tx.send(state)?;
 
@@ -271,7 +271,7 @@ impl PoolDBInner {
                                 return Ok(Some(f(&mut self, block_number, *pool_tx, tx_index as u64)?));
                             }
                         } else {
-                            debug!(target: "UniV3::fetcher", "tx reverted in sim: {:?}", transaction.hash);
+                            debug!(target: "uniV3::fetcher", "tx reverted in sim: {:?}", transaction.hash);
                         }
                     }
 
@@ -284,7 +284,7 @@ impl PoolDBInner {
             .flatten().flatten()
             .collect::<Vec<_>>();
 
-        debug!(target: "UniV3::fetcher", "completed block {} for pool {} with {} total ticks", block_number,pool_address, pool_states.len());
+        debug!(target: "uniV3::fetcher", "completed block {} for pool {} with {} total ticks", block_number,pool_address, pool_states.len());
 
         Ok(pool_states)
     }
