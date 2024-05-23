@@ -102,7 +102,7 @@ impl PoolFetcher for PoolTickFetcher {
             return Ok(Vec::new());
         }
 
-        debug!(target: "uni-v3::data::tick-info", "pool: {:?} - got state for block {} and tx hash {:?}", self.pool_address, block_number, tx_hash);
+        debug!(target: "UniV3::data::tick-info", "pool: {:?} - got state for block {} and tx hash {:?}", self.pool_address, block_number, tx_hash);
 
         Ok(state.into_iter().map(Into::into).collect())
     }

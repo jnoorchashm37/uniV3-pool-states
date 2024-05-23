@@ -142,9 +142,9 @@ impl Future for BufferedClickhouse {
                 if let Err(e) = val {
                     let db = this.db.clone();
                     this.fut = Some(Box::pin(Self::insert(db, this.inserting.clone())));
-                    error!(target: "uni-v3::db", "error inserting into db, RETRYING - {:?}", e);
+                    error!(target: "UniV3::db", "error inserting into db, RETRYING - {:?}", e);
                 } else {
-                    info!(target: "uni-v3::db", "inserted {} values into db", this.inserting.len());
+                    info!(target: "UniV3::db", "inserted {} values into db", this.inserting.len());
                     this.inserting.clear();
                 }
             } else {
