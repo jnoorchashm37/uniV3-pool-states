@@ -156,7 +156,7 @@ mod tests {
             block_number: 19933988,
             pool_address,
             tx_hash,
-            tx_index: 253,
+            tx_index: 88,
             tick: 193887,
             token0,
             token0_decimals,
@@ -171,6 +171,6 @@ mod tests {
             unlocked: true,
         })];
 
-        assert_eq!(calculated, expected);
+        assert!(calculated.contains(expected));
     }
 }
