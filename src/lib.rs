@@ -49,7 +49,6 @@ async fn execute(executor: TaskExecutor) -> eyre::Result<()> {
     executor.spawn_blocking(buffered_db);
 
     let (min_block, pools) = get_initial_pools(&db).await?;
-    info!(target: "uniV3", "starting block range {min_block} - {current_block} for {} pools",pools.len());
 
     let mut pool_fetchers = Vec::new();
     if cli.slot0 {
@@ -76,17 +75,16 @@ async fn execute(executor: TaskExecutor) -> eyre::Result<()> {
         pool_fetchers.extend(tick_info_pools)
     }
 
-    // let this_handle = handle.clone();
-    // let buffered_db_handle = handle
-    //     .clone()
-    //     .spawn_blocking(move || this_handle.block_on());
+    let start_block = cli.start_block.unwrap_or(min_block);
+    let end_block = cli.end_block.unwrap_or(current_block);
+    info!(target: "uniV3", "starting block range {start_block} - {end_block} for {} pools", pools.len());
 
     let handler = PoolHandler::new(
         node,
         tx.clone(),
         pool_fetchers,
-        cli.start_block.unwrap_or(min_block),
-        cli.end_block.unwrap_or(current_block),
+        start_block,
+        end_block,
         executor.handle().clone(),
     );
 
