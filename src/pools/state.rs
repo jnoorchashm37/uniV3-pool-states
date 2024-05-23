@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, TxHash, U16, U160, U256};
+use alloy_primitives::{Address, TxHash, U256};
 
 use clickhouse::Row;
 

@@ -152,7 +152,7 @@ mod tests {
         let calculated = test_ticker
             .execute_block(&mut pool_inner, 19933988, tx_hash, 88)
             .unwrap();
-        let expected = vec![PoolData::Slot0(PoolSlot0 {
+        let expected = PoolData::Slot0(PoolSlot0 {
             block_number: 19933988,
             pool_address,
             tx_hash,
@@ -169,8 +169,8 @@ mod tests {
             observation_cardinality_next: 723,
             fee_protocol: 0,
             unlocked: true,
-        })];
+        });
 
-        assert!(calculated.contains(expected));
+        assert!(calculated.contains(&expected));
     }
 }

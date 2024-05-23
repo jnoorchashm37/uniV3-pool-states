@@ -2,10 +2,10 @@ use clap::Parser;
 use cli::CliCmd;
 use db::{get_initial_pools, spawn_clickhouse_db};
 use node::EthNodeApi;
-use pools::{PoolFetcher, PoolSlot0, PoolSlot0Fetcher, PoolTickFetcher};
-use std::sync::{Arc, OnceLock};
-use tokio::{runtime::Handle, sync::mpsc::unbounded_channel};
-use tracing::{info, Level};
+use pools::{PoolFetcher, PoolSlot0Fetcher, PoolTickFetcher};
+use std::sync::Arc;
+use tokio::sync::mpsc::unbounded_channel;
+use tracing::info;
 use utils::TokenInfo;
 
 mod handler;
