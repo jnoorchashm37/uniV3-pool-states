@@ -131,17 +131,17 @@ mod tests {
         let node = EthNodeApi::new(&reth_db_path, tokio::runtime::Handle::current()).unwrap();
 
         let test_block_number = 19933988;
-
-        let mut pool_inner = PoolDBInner::new(Arc::new(node), test_block_number)
-            .await
-            .unwrap();
-
         let pool_address = Address::from_str("0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640").unwrap();
+
         let token0 = Address::from_str("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48").unwrap();
         let token0_decimals = 6;
 
         let token1 = Address::from_str("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").unwrap();
         let token1_decimals = 18;
+
+        let mut pool_inner = PoolDBInner::new(Arc::new(node), test_block_number)
+            .await
+            .unwrap();
 
         let test_ticker = PoolSlot0Fetcher::new(
             pool_address,
