@@ -130,7 +130,11 @@ mod tests {
         let reth_db_path = std::env::var("RETH_DB_PATH").expect("no 'RETH_DB_PATH' in .env");
         let node = EthNodeApi::new(&reth_db_path, tokio::runtime::Handle::current()).unwrap();
 
-        let mut pool_inner = PoolDBInner::new(Arc::new(node), 12369879).await.unwrap();
+        let test_block_number = 19933988;
+
+        let mut pool_inner = PoolDBInner::new(Arc::new(node), test_block_number)
+            .await
+            .unwrap();
 
         let pool_address = Address::from_str("0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640").unwrap();
         let token0 = Address::from_str("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48").unwrap();
@@ -150,10 +154,10 @@ mod tests {
             TxHash::from_str("0x7f96b7c6186be132d7032ee9e42221250bf9720b997b0905447a8a73513c51d8")
                 .unwrap();
         let calculated = test_ticker
-            .execute_block(&mut pool_inner, 19933988, tx_hash, 88)
+            .execute_block(&mut pool_inner, test_block_number, tx_hash, 88)
             .unwrap();
         let expected = PoolData::Slot0(PoolSlot0 {
-            block_number: 19933988,
+            block_number: test_block_number,
             pool_address,
             tx_hash,
             tx_index: 88,
