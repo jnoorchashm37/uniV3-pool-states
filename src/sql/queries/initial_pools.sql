@@ -20,10 +20,10 @@ WITH
 SELECT
     toString(p.address) AS pool_address,
     toString(p.tokens[1]) AS token0_address,
-    t0.decimals AS token0_decimals,
+    CAST(t0.decimals, 'UInt8') AS token0_decimals,
     toString(p.tokens[2]) AS token1_address,
-    t1.decimals AS token1_decimals,
-    init_block AS creation_block
+    CAST(t1.decimals, 'UInt8') AS token1_decimals,
+    CAST(init_block, 'UInt64') AS creation_block
 FROM ethereum.pools p
 INNER JOIN initial_pools n ON n.pool = p.address
 INNER JOIN ethereum.dex_tokens t0 ON token0_address = t0.address
