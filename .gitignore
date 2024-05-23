@@ -3,3 +3,5 @@
 .env
 
 Cargo.lock
+
+**/const_sql.rs
