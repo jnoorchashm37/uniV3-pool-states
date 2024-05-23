@@ -163,7 +163,7 @@ mod tests {
             token1,
             token1_decimals,
             sqrt_price_x96: U256::from(1284929393637281108785461745518480u128),
-            calculated_price: .00006,
+            calculated_price: 0.00006,
             observation_index: 125,
             observation_cardinality: 723,
             observation_cardinality_next: 723,
