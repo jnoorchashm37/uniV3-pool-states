@@ -14,7 +14,8 @@ WITH
             '0x9db9e0e53058c89e5b94e29621a205198648425b',
             '0xe8c6c9227491c0a8156a0106a0204d881bb7e531',
             '0x4585fe77225b41b697c938b018e2ac67ac5a20c0',
-            '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640'
+            '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640',
+            '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8'
         ]) AS pool
     )
 SELECT
@@ -28,3 +29,9 @@ FROM ethereum.pools p
 INNER JOIN initial_pools n ON n.pool = p.address
 INNER JOIN ethereum.dex_tokens t0 ON token0_address = t0.address
 INNER JOIN ethereum.dex_tokens t1 ON token1_address = t1.address
+
+
+
+
+
+
