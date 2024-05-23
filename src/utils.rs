@@ -101,7 +101,6 @@ pub mod serde_tx_hash {
 
     pub fn serialize<S: Serializer>(u: &TxHash, serializer: S) -> Result<S::Ok, S::Error> {
         let s = format!("{:?}", u).to_lowercase();
-
         s.serialize(serializer)
     }
 
