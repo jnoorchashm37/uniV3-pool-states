@@ -17,9 +17,14 @@ pub struct CliCmd {
     /// default is the block of the creation of the first uniV3 pool
     #[arg(short, long)]
     pub start_block: Option<u64>,
+
     /// defaults is the current chain tip
     #[arg(short, long)]
     pub end_block: Option<u64>,
+
+    /// size of the db buffer
+    #[arg(short, long, default_value = "10000")]
+    pub insert_size: usize,
 
     #[clap(flatten)]
     pub verbosity: Verbosity,

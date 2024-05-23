@@ -45,7 +45,7 @@ async fn execute(executor: TaskExecutor) -> eyre::Result<()> {
     let db = Arc::new(spawn_clickhouse_db());
 
     let (tx, rx) = unbounded_channel();
-    let buffered_db = BufferedClickhouse::new(db.clone(), rx, 100000);
+    let buffered_db = BufferedClickhouse::new(db.clone(), rx, cli.insert_size);
     executor.spawn_blocking(buffered_db);
 
     let (min_block, pools) = get_initial_pools(&db).await?;
