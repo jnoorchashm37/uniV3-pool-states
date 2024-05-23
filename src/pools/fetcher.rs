@@ -1,11 +1,14 @@
 use crate::{execute_on_threadpool, node::EthNodeApi};
 use alloy_primitives::Address;
 use alloy_sol_types::SolCall;
+use reth_primitives::revm::env::tx_env_with_recovered;
+
+use super::{PoolData, PoolFetcher, PoolTickFetcher, PoolTickInfo, UniswapV3};
 
 use alloy_primitives::{TxHash, U256};
-use malachite::Natural;
+
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use reth_primitives::{revm::env::tx_env_with_recovered, TransactionSignedEcRecovered};
+use reth_primitives::TransactionSignedEcRecovered;
 use reth_provider::StateProvider;
 use reth_revm::{
     database::StateProviderDatabase,
@@ -14,31 +17,28 @@ use reth_revm::{
     DatabaseCommit,
 };
 use reth_rpc::eth::EthTransactions;
-use std::{collections::HashSet, ops::Range, str::FromStr, sync::Arc};
+use std::{collections::HashSet, ops::Range, sync::Arc};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::{debug, info};
 
-use super::{
-    u160_to_natural, u256_to_natural, u256_to_rational, PoolState, PoolTickFetcher, UniswapV3,
-};
-
-pub struct PoolCaller<'a> {
+pub struct PoolCaller {
     pub node: Arc<EthNodeApi>,
-    pub db_tx: UnboundedSender<Vec<PoolState>>,
-    pub pools: Vec<&'a PoolTickFetcher>,
+    pub db_tx: UnboundedSender<Vec<PoolData>>,
+    pub pools: Vec<Arc<Box<dyn PoolFetcher>>>,
     pub block_number: u64,
 }
 
-impl<'a> PoolCaller<'a> {
+impl PoolCaller {
     pub fn new(
         node: Arc<EthNodeApi>,
-        db_tx: UnboundedSender<Vec<PoolState>>,
-        pools: &'a [PoolTickFetcher],
+        db_tx: UnboundedSender<Vec<PoolData>>,
+        pools: &[Arc<Box<dyn PoolFetcher>>],
         block_number: u64,
     ) -> Self {
         let pools = pools
             .iter()
-            .filter(|pool| pool.earliest_block <= block_number)
+            .filter(|pool| pool.earliest_block() <= block_number)
+            .cloned()
             .collect::<Vec<_>>();
         Self {
             node,
@@ -71,7 +71,7 @@ impl<'a> PoolCaller<'a> {
         let addresses = self
             .pools
             .iter()
-            .map(|pool| pool.pool_address)
+            .map(|pool| pool.pool_address())
             .collect::<Vec<_>>();
 
         let pool_txs = self
@@ -79,10 +79,9 @@ impl<'a> PoolCaller<'a> {
             .get_transaction_traces_with_addresses(&addresses, self.block_number)
             .await?;
 
-        let state = execute_on_threadpool(|| {
-            self.run_cycle(pool_inner, &parent_block_txs, &pool_txs, &self.pools)
-        })?;
-        info!(target: "uni-v3::fetcher", "completed block {} for {} pools with {} total ticks", self.block_number,self.pools.len(), state.len());
+        let state =
+            execute_on_threadpool(|| self.run_cycle(pool_inner, &parent_block_txs, &pool_txs))?;
+        info!(target: "uni-v3::fetcher", "completed block {} for {} pools with {} total values", self.block_number,self.pools.len(), state.len());
 
         self.db_tx.send(state)?;
 
@@ -94,14 +93,14 @@ impl<'a> PoolCaller<'a> {
         inner: PoolDBInner,
         parent_block_txs: &[TransactionSignedEcRecovered],
         pool_txs: &[(Address, TxHash)],
-        pools: &[&PoolTickFetcher],
-    ) -> eyre::Result<Vec<PoolState>> {
-        let state = pools
+    ) -> eyre::Result<Vec<PoolData>> {
+        let state = self
+            .pools
             .par_iter()
             .map(|pool| {
                 let pool_txs = pool_txs
                     .iter()
-                    .filter(|(p, _)| p == &pool.pool_address)
+                    .filter(|(p, _)| p == &pool.pool_address())
                     .map(|(_, t)| *t)
                     .collect::<HashSet<_>>();
 
@@ -112,7 +111,7 @@ impl<'a> PoolCaller<'a> {
                     inner.execute_cycle(
                         self.block_number,
                         parent_block_txs,
-                        pool.pool_address,
+                        pool.pool_address(),
                         pool_txs,
                         |db_inner, bn, tx, tx_index| pool.execute_block(db_inner, bn, tx, tx_index),
                     )
@@ -194,42 +193,11 @@ impl PoolDBInner {
         Ok(self.transact_call(request, to)?._0)
     }
 
-    pub fn get_price(&mut self, to: Address) -> eyre::Result<PoolPrice> {
+    pub fn get_slot0(&mut self, to: Address) -> eyre::Result<UniswapV3::slot0Return> {
         let call = UniswapV3::slot0Call {};
 
-        let slot0 = self.transact_call(call, to)?;
-
-        let sqrt_price = u160_to_natural(slot0.sqrtPriceX96);
-
-        let non_adj_price = Rational::from_naturals(sqrt_price.pow(2), Natural::from(2u8).pow(196));
-
-        Ok(PoolPrice::default())
+        Ok(self.transact_call(call, to)?)
     }
-
-    /*
-
-
-    SELECT
-        exchange,
-        'ETH-USD' AS eth,
-        any(timestamp) AS time,
-        any((ask_price+bid_price)/2) AS eth_price
-    FROM cex.normalized_quotes
-    WHERE symbol LIKE 'ETH%' AND (symbol LIKE '%USDC' OR symbol LIKE '%USDT') AND timestamp >= (1702746431) * 1000000 AND timestamp < (1702746431 + 12) * 1000000
-    GROUP BY exchange
-
-
-    1288329390478420389134906353335981^2 / 2^192
-
-
-    264525828.74 * 10
-
-
-    1/.00026
-
-    ETH/USDC
-
-    */
 
     fn transact_call<C: SolCall>(&mut self, call: C, to: Address) -> eyre::Result<C::Return> {
         let mut env = self.env.clone();
@@ -272,9 +240,9 @@ impl PoolDBInner {
         pool_address: Address,
         pool_txs: HashSet<TxHash>,
         f: F,
-    ) -> eyre::Result<Vec<PoolState>>
+    ) -> eyre::Result<Vec<PoolData>>
     where
-        F: Fn(&mut PoolDBInner, u64, TxHash, u64) -> eyre::Result<Vec<PoolState>>,
+        F: Fn(&mut PoolDBInner, u64, TxHash, u64) -> eyre::Result<PoolData>,
     {
         let pool_states = parent_block_txs
             .iter()
@@ -300,7 +268,7 @@ impl PoolDBInner {
 
                         if res.result.is_success() {
                             if let Some(pool_tx) = pool_txs.get(&transaction.hash) {
-                                return Ok(f(&mut self, block_number, *pool_tx, tx_index as u64)?);
+                                return Ok(Some(f(&mut self, block_number, *pool_tx, tx_index as u64)?));
                             }
                         } else {
                             debug!(target: "uni-v3::fetcher", "tx reverted in sim: {:?}", transaction.hash);
@@ -309,7 +277,7 @@ impl PoolDBInner {
 
 
 
-                Ok(Vec::new())
+                Ok(None)
             })
             .collect::<eyre::Result<Vec<_>>>()?
             .into_iter()

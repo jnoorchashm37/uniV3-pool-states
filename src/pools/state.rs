@@ -1,36 +1,39 @@
-use alloy_primitives::{Address, U256};
-use alloy_primitives::{TxHash, U160};
+use alloy_primitives::{Address, TxHash, U16, U160, U256};
+
 use clickhouse::Row;
-use malachite::Rational;
+
 use serde::{Deserialize, Serialize};
 
 use crate::pools::UniswapV3;
+use crate::utils::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Row, PartialEq)]
-pub struct PoolState {
+pub struct PoolTickInfo {
     pub block_number: u64,
-    pub pool_address: String,
-    pub tx_hash: String,
+    #[serde(with = "serde_address")]
+    pub pool_address: Address,
+    #[serde(with = "serde_tx_hash")]
+    pub tx_hash: TxHash,
     pub tx_index: u64,
     pub tick: i32,
     pub tick_spacing: i32,
     pub liquidity_gross: u128,
     pub liquidity_net: i128,
-    #[serde(with = "u256")]
+    #[serde(with = "serde_u256")]
     pub fee_growth_outside_0_x128: U256,
-    #[serde(with = "u256")]
+    #[serde(with = "serde_u256")]
     pub fee_growth_outside_1_x128: U256,
     pub tick_cumulative_outside: i64,
-    #[serde(with = "u256")]
+    #[serde(with = "serde_u256")]
     pub seconds_per_liquidity_outside_x128: U256,
     pub seconds_outside: u32,
     pub initialized: bool,
 }
 
-impl PoolState {
+impl PoolTickInfo {
     pub fn new_with_block_and_address(
         tick_return: UniswapV3::ticksReturn,
-        address: Address,
+        pool_address: Address,
         tx_hash: TxHash,
         tx_index: u64,
         tick: i32,
@@ -39,8 +42,8 @@ impl PoolState {
     ) -> Self {
         Self {
             block_number,
-            pool_address: format!("{:?}", address).to_lowercase(),
-            tx_hash: format!("{:?}", tx_hash).to_lowercase(),
+            pool_address,
+            tx_hash,
             tx_index,
             tick,
             tick_spacing,
@@ -57,38 +60,102 @@ impl PoolState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Row, PartialEq)]
-pub struct PoolPrice {
+pub struct PoolSlot0 {
     pub block_number: u64,
-    pub pool_address: String,
-    pub price: f64,
+    #[serde(with = "serde_address")]
+    pub pool_address: Address,
+    #[serde(with = "serde_address")]
+    pub token0: Address,
+    pub token0_decimals: u8,
+    #[serde(with = "serde_address")]
+    pub token1: Address,
+    pub token1_decimals: u8,
+    #[serde(with = "serde_tx_hash")]
+    pub tx_hash: TxHash,
+    pub tx_index: u64,
+    pub tick: i32,
+    #[serde(with = "serde_u256")]
+    pub sqrt_price_x96: U256,
+    pub calculated_price: f64,
+    pub observation_index: u16,
+    pub observation_cardinality: u16,
+    pub observation_cardinality_next: u16,
+    pub fee_protocol: u8,
+    pub unlocked: bool,
 }
 
-pub fn u160_to_natural(num: U160) -> Natural {
-    Natural::from_limbs_asc(&num.into_limbs())
+impl PoolSlot0 {
+    pub fn new(
+        slot0_return: UniswapV3::slot0Return,
+        pool_address: Address,
+        tx_hash: TxHash,
+        tx_index: u64,
+        block_number: u64,
+        token0: &TokenInfo,
+        token1: &TokenInfo,
+        calculated_price: f64,
+    ) -> Self {
+        Self {
+            block_number,
+            pool_address,
+            tx_hash,
+            tx_index,
+            tick: slot0_return.tick,
+            token0: token0.address,
+            token0_decimals: token0.decimals,
+            token1: token1.address,
+            token1_decimals: token1.decimals,
+            sqrt_price_x96: slot0_return.sqrtPriceX96,
+            calculated_price,
+            observation_index: slot0_return.observationIndex,
+            observation_cardinality: slot0_return.observationCardinality,
+            observation_cardinality_next: slot0_return.observationCardinalityNext,
+            fee_protocol: slot0_return.feeProtocol,
+            unlocked: slot0_return.unlocked,
+        }
+    }
 }
 
-pub fn u256_to_natural(num: U256) -> Natural {
-    Natural::from_limbs_asc(&num.into_limbs())
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum PoolData {
+    TickInfo(Vec<PoolTickInfo>),
+    Slot0(Vec<PoolSlot0>),
 }
 
-mod u256 {
-    use alloy_primitives::U256;
-    use serde::{
-        de::{Deserialize, Deserializer},
-        ser::{Serialize, Serializer},
+impl PoolData {
+    pub fn combine_many(values: Vec<Self>) -> (Vec<PoolTickInfo>, Vec<PoolSlot0>) {
+        let mut tick_info = Vec::new();
+        let mut slot0 = Vec::new();
+
+        values.into_iter().for_each(|v| match v {
+            PoolData::TickInfo(vals) => tick_info.extend(vals),
+            PoolData::Slot0(vals) => slot0.extend(vals),
+        });
+
+        (tick_info, slot0)
+    }
+}
+
+macro_rules! to_pool_data {
+    ($($dt:ident),*) => {
+
+        $(
+            paste::paste! {
+
+                impl From<[<Pool $dt>]> for PoolData {
+                    fn from(value: [<Pool $dt>]) -> PoolData {
+                        PoolData::$dt(vec![value])
+                    }
+                }
+
+                impl From<Vec<[<Pool $dt>]>> for PoolData {
+                    fn from(value: Vec<[<Pool $dt>]>) -> PoolData {
+                        PoolData::$dt(value)
+                    }
+                }
+            }
+        )*
     };
-
-    pub fn serialize<S: Serializer>(u: &U256, serializer: S) -> Result<S::Ok, S::Error> {
-        let bytes: [u8; 32] = u.to_le_bytes();
-        bytes.serialize(serializer)
-    }
-
-    #[allow(dead_code)]
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<U256, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let u: [u8; 32] = Deserialize::deserialize(deserializer)?;
-        Ok(U256::from_le_bytes(u))
-    }
 }
+
+to_pool_data!(Slot0, TickInfo);

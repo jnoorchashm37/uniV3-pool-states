@@ -4,7 +4,9 @@ use alloy_primitives::U256;
 use tracing::debug;
 
 use super::PoolDBInner;
-use super::PoolState;
+use super::PoolData;
+use super::PoolFetcher;
+use super::PoolTickInfo;
 
 #[derive(Clone)]
 pub struct PoolTickFetcher {
@@ -24,31 +26,13 @@ impl PoolTickFetcher {
         }
     }
 
-    pub fn execute_block(
-        &self,
-        inner: &mut PoolDBInner,
-        block_number: u64,
-        tx_hash: TxHash,
-        tx_index: u64,
-    ) -> eyre::Result<Vec<PoolState>> {
-        let state = self.get_state_from_ticks(inner, block_number, tx_hash, tx_index)?;
-
-        if state.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        debug!(target: "uni-v3", "pool: {:?} - got state for block {} and tx hash {:?}", self.pool_address, block_number, tx_hash);
-
-        Ok(state)
-    }
-
     fn get_state_from_ticks(
         &self,
         inner: &mut PoolDBInner,
         block_number: u64,
         tx_hash: TxHash,
         tx_index: u64,
-    ) -> eyre::Result<Vec<PoolState>> {
+    ) -> eyre::Result<Vec<PoolTickInfo>> {
         let bitmaps = inner.get_tick_bitmaps(self.pool_address, self.min_word..self.max_word)?;
         if bitmaps.is_empty() {
             return Ok(Vec::new());
@@ -66,7 +50,7 @@ impl PoolTickFetcher {
         Ok(states
             .into_iter()
             .map(|(tick, state)| {
-                PoolState::new_with_block_and_address(
+                PoolTickInfo::new_with_block_and_address(
                     state,
                     self.pool_address,
                     tx_hash,
@@ -104,6 +88,34 @@ impl PoolTickFetcher {
     }
 }
 
+impl PoolFetcher for PoolTickFetcher {
+    fn execute_block(
+        &self,
+        inner: &mut PoolDBInner,
+        block_number: u64,
+        tx_hash: TxHash,
+        tx_index: u64,
+    ) -> eyre::Result<PoolData> {
+        let state = self.get_state_from_ticks(inner, block_number, tx_hash, tx_index)?;
+
+        if state.is_empty() {
+            return Ok(PoolData::TickInfo(Vec::new()));
+        }
+
+        debug!(target: "uni-v3::data::tick-info", "pool: {:?} - got state for block {} and tx hash {:?}", self.pool_address, block_number, tx_hash);
+
+        Ok(state.into())
+    }
+
+    fn earliest_block(&self) -> u64 {
+        self.earliest_block
+    }
+
+    fn pool_address(&self) -> Address {
+        self.pool_address
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{str::FromStr, sync::Arc};
@@ -133,10 +145,11 @@ mod tests {
             .execute_block(&mut pool_inner, 12369879, tx_hash, 253)
             .unwrap();
         let expected = vec![
-            PoolState {
+            PoolTickInfo {
                 block_number: 12369879,
-                pool_address: "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8".to_string(),
-                tx_hash: format!("{:?}", tx_hash).to_lowercase(),
+                pool_address: Address::from_str("0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8")
+                    .unwrap(),
+                tx_hash,
                 tx_index: 253,
                 tick: -84120,
                 tick_spacing: 60,
@@ -149,10 +162,11 @@ mod tests {
                 seconds_outside: 1620159368,
                 initialized: true,
             },
-            PoolState {
+            PoolTickInfo {
                 block_number: 12369879,
-                pool_address: "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8".to_string(),
-                tx_hash: format!("{:?}", tx_hash).to_lowercase(),
+                pool_address: Address::from_str("0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8")
+                    .unwrap(),
+                tx_hash,
                 tx_index: 253,
                 tick: -78240,
                 tick_spacing: 60,
@@ -167,6 +181,6 @@ mod tests {
             },
         ];
 
-        assert_eq!(calculated, expected);
+        assert_eq!(calculated, PoolData::TickInfo(expected));
     }
 }

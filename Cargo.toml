@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 
-db-interfaces = { git = "https://github.com/SorellaLabs/db-interfaces", no-default-features = true }
+db-interfaces = { git = "https://github.com/SorellaLabs/db-interfaces" }
 
 # clickhouse
 clickhouse = { git = "https://github.com/SorellaLabs/clickhouse.rs", branch = "master" }
@@ -13,24 +13,28 @@ clickhouse = { git = "https://github.com/SorellaLabs/clickhouse.rs", branch = "m
 # reth
 reth-primitives = { git = "https://github.com/paradigmxyz/reth", package = "reth-primitives", rev = "ac29b4b" }
 reth-rpc-api = { git = "https://github.com/paradigmxyz/reth", package = "reth-rpc-api", rev = "ac29b4b" }
-#reth-rpc = { git = "https://github.com/paradigmxyz/reth", package = "reth-rpc", rev = "ac29b4b" }
+reth-rpc = { git = "https://github.com/paradigmxyz/reth", package = "reth-rpc", rev = "ac29b4b" }
 reth-interfaces = { git = "https://github.com/paradigmxyz/reth", package = "reth-interfaces", rev = "ac29b4b" }
 reth-provider = { git = "https://github.com/paradigmxyz/reth", package = "reth-provider", rev = "ac29b4b" }
 reth-revm = { git = "https://github.com/paradigmxyz/reth", package = "reth-revm", rev = "ac29b4b" }
+reth-tasks = { git = "https://github.com/paradigmxyz/reth", package = "reth-tasks", rev = "ac29b4b" }
 reth-api-libmdbx = { git = "https://github.com/jnoorchashm37/reth-api-libmdbx" }
 
 # alloy
-alloy-sol-macro = { version = "0.7.2", features = ["json"] }
-alloy-sol-types = { version = "0.7.2", features = ["json"] }
-alloy-rpc-types = { git = "https://github.com/alloy-rs/alloy.git", rev = "64feb9b" }
-alloy-rpc-types-trace = { git = "https://github.com/alloy-rs/alloy.git", rev = "64feb9b" }
-#alloy-primitives = { version = "0.7.2", features = ["rlp"] }
+alloy-rpc-types = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
+alloy-rpc-types-trace = { git = "https://github.com/alloy-rs/alloy.git", rev = "39b8695" }
+alloy-sol-macro = { version = "0.7.0", features = ["json"] }
+alloy-sol-types = { version = "0.7.0", features = ["json"] }
+alloy-primitives = { version = "0.7.0", features = ["rlp"] }
 
 # error handling
 eyre = "0.6.5"
 
 # serde
 serde = "1.0"
+
+# cli
+clap = { version = "4.5", features = ["derive"] }
 
 # async
 async-trait = "0.1.73"
@@ -42,6 +46,8 @@ tokio-stream = "0.1.14"
 dotenv = "0.15.0"
 rayon = "1.10.0"
 malachite = "0.4.0"
+paste = "1.0"
+thiserror = "1.0"
 
 
 # tracing

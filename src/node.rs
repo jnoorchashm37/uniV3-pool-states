@@ -12,6 +12,7 @@ use reth_revm::{
 };
 use reth_rpc::eth::EthTransactions;
 use reth_rpc_api::EthApiServer;
+use tracing::info;
 
 use std::collections::HashSet;
 use tokio::runtime::Handle;
@@ -22,6 +23,7 @@ pub struct EthNodeApi {
 
 impl EthNodeApi {
     pub fn new(db_path: &str, handle: Handle) -> eyre::Result<Self> {
+        info!(target: "uniV3", "spawned eth node connection");
         Ok(Self {
             reth_api: RethDbApiClient::new(db_path, handle)?,
         })

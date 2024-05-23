@@ -6,23 +6,36 @@ use std::{
 };
 
 use alloy_primitives::Address;
+use clickhouse::Row;
 use db_interfaces::{
     clickhouse::{client::ClickhouseClient, config::ClickhouseConfig},
     clickhouse_dbms, remote_clickhouse_table, Database,
 };
 use futures::{Future, FutureExt};
+use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::{error, info};
 
-use crate::pools::{PoolState, PoolTickFetcher};
+use crate::{
+    pools::{PoolData, PoolSlot0, PoolTickInfo},
+    utils::{serde_address, TokenInfo},
+};
 
-clickhouse_dbms!(UniswapV3Tables, [UniV3PoolState]);
+clickhouse_dbms!(UniswapV3Tables, [UniV3TickInfo, UniV3Slot0]);
 
 remote_clickhouse_table!(
     UniswapV3Tables,
     "eth_analytics",
-    UniV3PoolState,
-    PoolState,
+    UniV3TickInfo,
+    PoolTickInfo,
+    "src/pools/sql/"
+);
+
+remote_clickhouse_table!(
+    UniswapV3Tables,
+    "eth_analytics",
+    UniV3Slot0,
+    PoolSlot0,
     "src/pools/sql/"
 );
 
@@ -32,6 +45,8 @@ pub fn spawn_clickhouse_db() -> ClickhouseClient<UniswapV3Tables> {
     let pass = std::env::var("CLICKHOUSE_PASS").expect("CLICKHOUSE_PASS not found in .env");
 
     let config = ClickhouseConfig::new(user, pass, url, true, None);
+
+    info!(target: "uniV3", "started clickhouse db connection");
 
     config.build()
 }
@@ -56,35 +71,44 @@ address = '0x4585fe77225b41b697c938b018e2ac67ac5a20c0' OR
 address = '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640'
 ";
 
+#[derive(Debug, Clone, Serialize, Deserialize, Row, PartialEq)]
+pub struct InitialPools {
+    #[serde(with = "serde_address")]
+    pub address: Address,
+    #[serde(with = "serde_address")]
+    pub token0_address: Address,
+    pub token0_decimals: u8,
+    #[serde(with = "serde_address")]
+    pub token1_address: Address,
+    pub token1_decimals: u8,
+    pub creation_block: u64,
+}
+
 pub async fn get_initial_pools(
     db: &ClickhouseClient<UniswapV3Tables>,
-) -> eyre::Result<(u64, Vec<PoolTickFetcher>)> {
-    let initial_pools: Vec<(String, u64)> = db.query_many(INITIAL_POOLS_QUERY, &()).await?;
+) -> eyre::Result<(u64, Vec<InitialPools>)> {
+    let pools: Vec<InitialPools> = db.query_many(INITIAL_POOLS_QUERY, &()).await?;
 
-    let pools = initial_pools
-        .into_iter()
-        .map(|(addr, blk)| PoolTickFetcher::new(Address::from_str(&addr).unwrap(), blk))
-        .collect::<Vec<_>>();
-
-    let min_block = pools.iter().map(|p| p.earliest_block).min().unwrap();
+    let min_block = pools.iter().map(|p| p.creation_block).min().unwrap();
 
     Ok((min_block, pools))
 }
 
 pub struct BufferedClickhouse {
     pub db: Arc<ClickhouseClient<UniswapV3Tables>>,
-    pub rx: UnboundedReceiver<Vec<PoolState>>,
+    pub rx: UnboundedReceiver<Vec<PoolData>>,
     pub fut: Option<Pin<Box<dyn Future<Output = eyre::Result<()>> + Send>>>,
-    pub queue: Vec<PoolState>,
-    pub inserting: Vec<PoolState>,
+    pub queue: Vec<PoolData>,
+    pub inserting: Vec<PoolData>,
     pub insert_size: usize,
 }
 impl BufferedClickhouse {
     pub fn new(
         db: Arc<ClickhouseClient<UniswapV3Tables>>,
-        rx: UnboundedReceiver<Vec<PoolState>>,
+        rx: UnboundedReceiver<Vec<PoolData>>,
         insert_size: usize,
     ) -> Self {
+        info!(target: "uniV3", "created buffered clickhouse connection");
         Self {
             db,
             rx,
@@ -97,9 +121,19 @@ impl BufferedClickhouse {
 
     async fn insert(
         db: Arc<ClickhouseClient<UniswapV3Tables>>,
-        vals: Vec<PoolState>,
+        vals: Vec<PoolData>,
     ) -> eyre::Result<()> {
-        Ok(db.insert_many::<UniV3PoolState>(&vals).await?)
+        let (tick_info, slot0) = PoolData::combine_many(vals);
+
+        if !tick_info.is_empty() {
+            db.insert_many::<UniV3TickInfo>(&tick_info).await?;
+        }
+
+        if !slot0.is_empty() {
+            db.insert_many::<UniV3Slot0>(&slot0).await?;
+        }
+
+        Ok(())
     }
 }
 
@@ -115,7 +149,7 @@ impl Future for BufferedClickhouse {
             if let Some(vals) = inc {
                 this.queue.extend(vals);
             } else if this.queue.is_empty() && this.inserting.is_empty() && this.fut.is_none() {
-                info!(target: "uni-v3", "shutting down clickhouse connection");
+                info!(target: "uniV3", "shutting down clickhouse connection");
                 return Poll::Ready(());
             } else {
                 is_finished = true;

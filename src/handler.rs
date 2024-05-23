@@ -1,5 +1,5 @@
 use crate::node::EthNodeApi;
-use crate::pools::{PoolCaller, PoolState, PoolTickFetcher};
+use crate::pools::PoolCaller;
 use futures::StreamExt;
 use futures::{stream::FuturesUnordered, Future};
 use std::pin::Pin;
@@ -10,14 +10,16 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
 use tracing::error;
 
+use crate::pools::{PoolData, PoolFetcher};
+
 /// reth sets it's mdbx enviroment's max readers to 32000
 /// we set ours lower to account for errored blocks + multi reads
 const MAX_TASKS: usize = 25_000;
 
 pub struct PoolHandler {
     pub node: Arc<EthNodeApi>,
-    pub db_tx: UnboundedSender<Vec<PoolState>>,
-    pub pools: &'static [PoolTickFetcher],
+    pub db_tx: UnboundedSender<Vec<PoolData>>,
+    pub pools: Vec<Arc<Box<dyn PoolFetcher>>>,
     pub futs: FuturesUnordered<JoinHandle<Result<usize, (u64, eyre::ErrReport)>>>,
     pub current_block: u64,
     pub end_block: u64,
@@ -28,8 +30,8 @@ pub struct PoolHandler {
 impl PoolHandler {
     pub fn new(
         node: Arc<EthNodeApi>,
-        db_tx: UnboundedSender<Vec<PoolState>>,
-        pools: &'static [PoolTickFetcher],
+        db_tx: UnboundedSender<Vec<PoolData>>,
+        pools: Vec<Arc<Box<dyn PoolFetcher>>>,
         start_block: u64,
         end_block: u64,
         handle: Handle,
@@ -60,9 +62,9 @@ impl Future for PoolHandler {
                 match val {
                     Ok(Ok(t)) => this.active_tasks -= t,
                     Ok(Err((b, e))) => {
-                        error!(target: "uni-v3", "failed to get block {b}, retrying - {:?}", e);
+                        error!(target: "uniV3", "failed to get block {b}, retrying - {:?}", e);
                         let caller =
-                            PoolCaller::new(this.node.clone(), this.db_tx.clone(), this.pools, b);
+                            PoolCaller::new(this.node.clone(), this.db_tx.clone(), &this.pools, b);
                         this.futs
                             .push(this.handle.clone().spawn(caller.execute_block()));
                     }
@@ -74,7 +76,7 @@ impl Future for PoolHandler {
                 let caller = PoolCaller::new(
                     this.node.clone(),
                     this.db_tx.clone(),
-                    this.pools,
+                    &this.pools,
                     this.current_block,
                 );
                 this.active_tasks += caller.pools.len();
