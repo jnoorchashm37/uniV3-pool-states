@@ -12,10 +12,6 @@ use tracing::error;
 
 use crate::pools::{PoolData, PoolFetcher};
 
-/// reth sets it's mdbx enviroment's max readers to 32000
-/// we set ours lower to account for errored blocks + multi reads
-const MAX_TASKS: usize = 25_000;
-
 pub struct PoolHandler {
     pub node: Arc<EthNodeApi>,
     pub db_tx: UnboundedSender<Vec<PoolData>>,
@@ -25,6 +21,7 @@ pub struct PoolHandler {
     pub end_block: u64,
     pub handle: Handle,
     pub active_tasks: usize,
+    pub max_concurrent_tasks: usize,
 }
 
 impl PoolHandler {
@@ -35,6 +32,7 @@ impl PoolHandler {
         start_block: u64,
         end_block: u64,
         handle: Handle,
+        max_concurrent_tasks: usize,
     ) -> Self {
         Self {
             node,
@@ -45,6 +43,7 @@ impl PoolHandler {
             end_block,
             handle,
             active_tasks: 0,
+            max_concurrent_tasks,
         }
     }
 }
@@ -72,7 +71,9 @@ impl Future for PoolHandler {
                 }
             }
 
-            if this.end_block >= this.current_block && this.active_tasks <= MAX_TASKS {
+            if this.end_block >= this.current_block
+                && this.active_tasks <= this.max_concurrent_tasks
+            {
                 let caller = PoolCaller::new(
                     this.node.clone(),
                     this.db_tx.clone(),

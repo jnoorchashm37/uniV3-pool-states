@@ -86,6 +86,7 @@ async fn execute(executor: TaskExecutor) -> eyre::Result<()> {
         start_block,
         end_block,
         executor.handle().clone(),
+        cli.max_concurrent_tasks,
     );
 
     executor

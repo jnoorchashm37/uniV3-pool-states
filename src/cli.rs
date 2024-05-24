@@ -26,6 +26,13 @@ pub struct CliCmd {
     #[arg(short, long, default_value = "10000")]
     pub insert_size: usize,
 
+    /// the maximum concurrenct tasks to run at once
+    ///
+    /// reth sets it's mdbx enviroment's max readers to 32000
+    /// we set our default lower to account for errored blocks + multi reads
+    #[arg(short, long, default_value = "25000")]
+    pub max_concurrent_tasks: usize,
+
     #[clap(flatten)]
     pub verbosity: Verbosity,
 }
