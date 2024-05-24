@@ -8100,6 +8100,7 @@ dependencies = [
  "reth-tasks",
  "serde",
  "thiserror",
+ "time",
  "tokio",
  "tokio-stream",
  "tracing",
