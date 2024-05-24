@@ -29,12 +29,3 @@ FROM ethereum.pools p
 INNER JOIN initial_pools n ON n.pool = p.address
 INNER JOIN ethereum.dex_tokens t0 ON token0_address = t0.address
 INNER JOIN ethereum.dex_tokens t1 ON token1_address = t1.address
-
-
-
-
-
-
-
-
-univ3-pool-states -t -s 19377000 -e 19377650 -i 10
