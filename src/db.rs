@@ -162,3 +162,149 @@ impl Future for BufferedClickhouse {
         Poll::Pending
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use time::OffsetDateTime;
+
+    use super::*;
+
+    const DEX_QUERY: &str = r#"
+        WITH 
+            19377595 AS start_block,
+            19377650 AS end_block,
+            last_state AS (
+                SELECT
+                    block_number,
+                    pool_address,
+                    argMax(calculated_price, tx_index) AS price
+                FROM eth_analytics.uni_v3_slot0
+                WHERE pool_address = ? AND block_number >= start_block AND block_number < end_block
+                GROUP BY block_number, pool_address
+                ORDER BY block_number DESC 
+            )
+        SELECT
+            CAST(b.block_number, 'UInt64') AS block_number,
+            toDateTime(b.block_timestamp) AS block_timestamp,
+            toString(s.pool_address) AS pool_address,
+            s.price AS price
+        FROM ethereum.blocks b 
+        INNER JOIN last_state s ON b.block_number = s.block_number
+        WHERE b.block_number >= start_block AND b.block_number < end_block
+        "#;
+
+    #[derive(Debug, Clone, Serialize, Deserialize, Row, PartialEq)]
+    pub struct Dex {
+        block_number: u64,
+        #[serde(with = "clickhouse::serde::time::datetime")]
+        block_timestamp: time::OffsetDateTime,
+        pool_address: String,
+        price: f64,
+    }
+
+    pub fn spawn_clickhouse_db_here() -> ClickhouseClient<KarthikTables> {
+        let url = std::env::var("CLICKHOUSE_URL").expect("CLICKHOUSE_URL not found in .env");
+        let user = std::env::var("CLICKHOUSE_USER").expect("CLICKHOUSE_USER not found in .env");
+        let pass = std::env::var("CLICKHOUSE_PASS").expect("CLICKHOUSE_PASS not found in .env");
+
+        let config = ClickhouseConfig::new(user, pass, url, true, None);
+
+        info!(target: "uniV3", "started clickhouse db connection");
+
+        config.build()
+    }
+
+    clickhouse_dbms!(KarthikTables, [KarthikDex]);
+    remote_clickhouse_table!(KarthikTables, "default", KarthikDex, Dex, "src/sql/tables/");
+
+    #[tokio::test]
+    async fn karthik() {
+        dotenv::dotenv().ok();
+
+        let db = spawn_clickhouse_db_here();
+        let mut eth: Vec<Dex> = db
+            .query_many(DEX_QUERY, &("0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"))
+            .await
+            .unwrap();
+        println!("ETH: {}", eth.len());
+        eth.sort_by(|a, b| a.block_number.cmp(&b.block_number));
+
+        let mut map = HashMap::new();
+        let mut last = eth.first().cloned().unwrap();
+
+        eth.into_iter().for_each(|eth| {
+            if eth.block_number <= 19377600 {
+                map.insert(19377600, eth.clone());
+                last = eth;
+            } else if eth.block_number == std::cmp::max(last.block_number, 19377600) + 1 {
+                println!("INSERTED -- {}", eth.block_number);
+                last = eth.clone();
+                map.insert(eth.block_number, eth);
+            } else {
+                let mut last_num = std::cmp::max(last.block_number, 19377600) + 1;
+                let mut this_last_time = std::cmp::max(
+                    last.block_timestamp,
+                    OffsetDateTime::parse(
+                        "2024-03-06 17:23:59 +00:00:00",
+                        time::macros::format_description!(
+                            "[year]-[month]-[day] [hour]:[minute]:[second] [offset_hour \
+                             sign:mandatory]:[offset_minute]:[offset_second]"
+                        ),
+                    )
+                    .unwrap(),
+                )
+                .checked_add(time::Duration::seconds(12))
+                .unwrap();
+                println!("ETH: {}", eth.block_number);
+                println!("LAST: {}", last_num);
+                //panic!();
+
+                while eth.block_number > last_num {
+                    //println!("{}", last_num);
+                    let mut this_last = last.clone();
+                    this_last.block_number = last_num;
+                    this_last.block_timestamp = this_last_time;
+                    println!("INSERTED -- {last_num}");
+                    map.insert(last_num, this_last);
+                    last_num += 1;
+                    this_last_time = this_last_time
+                        .checked_add(time::Duration::seconds(12))
+                        .unwrap();
+                }
+                println!("INSERTED -- {}", eth.block_number);
+                map.insert(eth.block_number, eth.clone());
+
+                println!("SET LAST -- {}", eth.block_number);
+                last = eth.clone();
+            }
+        });
+
+        let mut last_num = std::cmp::max(last.block_number, 19377600);
+        while 19377650 != last_num {
+            println!("{}", last_num);
+            let mut this_last = last.clone();
+            this_last.block_number = last_num;
+            map.insert(last_num, this_last);
+            last_num += 1;
+        }
+
+        assert_eq!(map.len(), 50);
+
+        db.insert_many::<KarthikDex>(&map.values().cloned().collect::<Vec<_>>())
+            .await
+            .unwrap();
+
+        let t = 1;
+
+        //(18800000..18800050).map(|val|)
+    }
+}
+
+/*
+
+OR pool_address = '0xcbcdf9626bc03e24f779434178a73a0b4bad62ed')
+0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640
+
+*/
