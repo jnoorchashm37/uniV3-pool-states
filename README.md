@@ -1,6 +1,8 @@
 # Uniswap V3 Pool State
-Uniswap V3 pool states by transaction since the inception of the pool.
-- each `PoolState` object is the state of the pool *AFTER* the specified `tx_hash`
+Uniswap V3 pool states post each transaction that effected the pool, since its inception:
+- `ticks()` -> `PoolTickInfo` (multiple objects for each initialized tick)
+- `slot()` -> `PoolSlot0`
+- each object is the state of the pool *AFTER* the specified `tx_hash`
 
 Currently supports the following pools:
 - ETH-USDT: 0x4e68Ccd3E89f51C3074ca5072bbAC773960dFa36
