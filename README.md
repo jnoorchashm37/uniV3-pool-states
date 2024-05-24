@@ -21,4 +21,4 @@ Currently supports the following pools:
 
 
 ### Note
-the `MAX_TASKS` in `pools/handler.rs` consumes a lot of memory (10-50GB for 25000 tasks), lower it if necessary
+the `--max-concurrent-tasks (-m)` cli flag consumes a lot of memory when run with the default value (10-50GB for 25000 concurrent tasks), lower it if necessary
