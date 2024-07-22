@@ -2,6 +2,7 @@ use alloy_primitives::{Address, TxHash, I256, U256};
 
 use clickhouse::Row;
 use malachite::rounding_modes::RoundingMode;
+use malachite::strings::ToDebugString;
 
 use crate::pools::UniswapV3;
 use crate::utils::*;
@@ -164,7 +165,9 @@ impl PoolTrade {
         };
 
         let token_in_natural = u256_to_natural(token_in_amount.abs().try_into().unwrap());
+        println!("IN: {:?}", token_in_natural.to_debug_string());
         let token_out_natural = u256_to_natural(token_in_amount.abs().try_into().unwrap());
+        println!("OUT: {:?}", token_out_natural.to_debug_string());
 
         let calculated_price = f64::rounding_from(
             Rational::from_naturals(token_in_natural, token_out_natural)
