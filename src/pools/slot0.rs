@@ -1,4 +1,4 @@
-use crate::pools::PoolSlot0;
+use crate::pools::types::PoolSlot0;
 use crate::utils::u256_to_natural;
 use crate::utils::TokenInfo;
 use alloy_primitives::Address;
@@ -12,8 +12,8 @@ use malachite::Rational;
 use tracing::debug;
 
 use super::PoolDBInner;
-use super::PoolData;
 use super::PoolFetcher;
+use crate::pools::types::PoolData;
 
 #[derive(Clone)]
 pub struct PoolSlot0Fetcher {
@@ -54,7 +54,14 @@ impl PoolSlot0Fetcher {
 }
 
 impl PoolFetcher for PoolSlot0Fetcher {
-    fn execute_block(
+    fn is_re_executed(&self) -> bool {
+        true
+    }
+    fn is_decoded(&self) -> bool {
+        false
+    }
+
+    fn re_execute_block(
         &self,
         inner: &mut PoolDBInner,
         block_number: u64,
@@ -129,7 +136,7 @@ mod tests {
             TxHash::from_str("0x7f96b7c6186be132d7032ee9e42221250bf9720b997b0905447a8a73513c51d8")
                 .unwrap();
         let calculated = test_ticker
-            .execute_block(&mut pool_inner, test_block_number, tx_hash, 88)
+            .re_execute_block(&mut pool_inner, test_block_number, tx_hash, 88)
             .unwrap();
         let expected = PoolData::Slot0(PoolSlot0 {
             block_number: test_block_number,

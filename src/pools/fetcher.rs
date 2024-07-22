@@ -1,9 +1,17 @@
-use crate::{execute_on_threadpool, node::EthNodeApi};
+use crate::{
+    execute_on_threadpool,
+    node::{
+        filter_traces_by_address_set_to_tx_hash, filter_traces_by_address_to_call_input,
+        EthNodeApi, FilteredTraceCall,
+    },
+};
 use alloy_primitives::Address;
 use alloy_sol_types::SolCall;
-use reth_primitives::revm::env::tx_env_with_recovered;
+use itertools::Itertools;
+use reth_primitives::{revm::env::tx_env_with_recovered, Bytes};
 
-use super::{PoolData, PoolFetcher, UniswapV3};
+use super::{PoolFetcher, UniswapV3};
+use crate::pools::types::PoolData;
 
 use alloy_primitives::{TxHash, U256};
 
@@ -17,7 +25,12 @@ use reth_revm::{
     DatabaseCommit,
 };
 use reth_rpc::eth::EthTransactions;
-use std::{collections::HashSet, ops::Range, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::Range,
+    pin::Pin,
+    sync::Arc,
+};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::{debug, info};
 
@@ -49,12 +62,52 @@ impl PoolCaller {
     }
 
     pub async fn execute_block(self) -> Result<usize, (u64, eyre::ErrReport)> {
-        self.run_block().await.map_err(|e| (self.block_number, e))?;
+        let data = self.run_block().await.map_err(|e| (self.block_number, e))?;
+
+        self.db_tx
+            .send(data)
+            .map_err(|e| (self.block_number, e.into()))?;
 
         Ok(self.pools.len())
     }
 
-    async fn run_block(&self) -> eyre::Result<()> {
+    async fn run_block(&self) -> eyre::Result<Vec<PoolData>> {
+        let (re_executed, decoded) =
+            tokio::try_join!(self.re_execute_block(), self.decode_block())?;
+
+        Ok(re_executed.into_iter().chain(decoded).collect())
+    }
+
+    async fn decode_block(&self) -> eyre::Result<Vec<PoolData>> {
+        let addresses = self
+            .pools
+            .iter()
+            .filter(|pool| pool.is_decoded())
+            .map(|pool| pool.pool_address())
+            .collect::<Vec<_>>();
+
+        let pool_txs = self
+            .node
+            .get_filtered_transaction_traces(self.block_number, |tx| {
+                filter_traces_by_address_to_call_input(tx, &addresses)
+            })
+            .await?
+            .into_iter()
+            .into_group_map();
+
+        if pool_txs.is_empty() {
+            debug!(target: "uniV3::fetcher", "no transactions found in block {} for {} pools", self.block_number,self.pools.len());
+            return Ok(Vec::new());
+        }
+
+        let state =
+            execute_on_threadpool(|| self.decode_transactions(self.block_number, &pool_txs))?;
+        info!(target: "uniV3::fetcher", "completed block {} for {} pools with {} total values", self.block_number, self.pools.len(), state.len());
+
+        Ok(state)
+    }
+
+    async fn re_execute_block(&self) -> eyre::Result<Vec<PoolData>> {
         let pool_inner = PoolDBInner::new(self.node.clone(), self.block_number).await?;
         let parent_block_txs = self
             .node
@@ -65,30 +118,54 @@ impl PoolCaller {
 
         if parent_block_txs.is_empty() {
             debug!(target: "uniV3::fetcher", "no transactions found in block {} for {} pools", self.block_number,self.pools.len());
-            return Ok(());
+            return Ok(Vec::new());
         }
 
         let addresses = self
             .pools
             .iter()
+            .filter(|pool| pool.is_re_executed())
             .map(|pool| pool.pool_address())
             .collect::<Vec<_>>();
 
         let pool_txs = self
             .node
-            .get_transaction_traces_with_addresses(&addresses, self.block_number)
+            .get_filtered_transaction_traces(self.block_number, |tx| {
+                filter_traces_by_address_set_to_tx_hash(tx, &addresses)
+            })
             .await?;
 
-        let state =
-            execute_on_threadpool(|| self.run_cycle(pool_inner, &parent_block_txs, &pool_txs))?;
-        info!(target: "uniV3::fetcher", "completed block {} for {} pools with {} total values", self.block_number,self.pools.len(), state.len());
+        let state = execute_on_threadpool(|| {
+            self.re_execute_transactions(pool_inner, &parent_block_txs, &pool_txs)
+        })?;
+        info!(target: "uniV3::fetcher", "completed block {} for {} pools with {} total values", self.block_number, self.pools.len(), state.len());
 
-        self.db_tx.send(state)?;
-
-        Ok(())
+        Ok(state)
     }
 
-    fn run_cycle(
+    fn decode_transactions(
+        &self,
+        block_number: u64,
+        block_txs: &HashMap<Address, Vec<FilteredTraceCall>>,
+    ) -> eyre::Result<Vec<PoolData>> {
+        let state = self
+            .pools
+            .par_iter()
+            .filter(|pool| pool.is_decoded())
+            .map(|pool| {
+                let pool_txs = block_txs.get(&pool.pool_address()).unwrap();
+
+                pool.decode_block(block_number, pool_txs)
+            })
+            .collect::<eyre::Result<Vec<_>>>()?
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+
+        Ok(state)
+    }
+
+    fn re_execute_transactions(
         &self,
         inner: PoolDBInner,
         parent_block_txs: &[TransactionSignedEcRecovered],
@@ -97,6 +174,7 @@ impl PoolCaller {
         let state = self
             .pools
             .par_iter()
+            .filter(|pool| pool.is_re_executed())
             .map(|pool| {
                 let pool_txs = pool_txs
                     .iter()
@@ -113,7 +191,9 @@ impl PoolCaller {
                         parent_block_txs,
                         pool.pool_address(),
                         pool_txs,
-                        |db_inner, bn, tx, tx_index| pool.execute_block(db_inner, bn, tx, tx_index),
+                        |db_inner, bn, tx, tx_index| {
+                            pool.re_execute_block(db_inner, bn, tx, tx_index)
+                        },
                     )
                 }
             })

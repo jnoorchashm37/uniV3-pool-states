@@ -41,10 +41,17 @@ where
     } = AsyncCliRunner::new()?;
 
     // Executes the command until it finished or ctrl-c was fired
-    let task_manager = tokio_runtime.block_on(run_to_completion_or_panic(
+    let task_manager = match tokio_runtime.block_on(run_to_completion_or_panic(
         task_manager,
         run_until_ctrl_c(command(context)),
-    ))?;
+    )) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("CRITICAL ERROR: {:?}", e);
+            std::thread::spawn(move || drop(tokio_runtime));
+            return Ok(());
+        }
+    };
 
     // after the command has finished or exit signal was received we shutdown the
     // task manager which fires the shutdown signal to all tasks spawned via the

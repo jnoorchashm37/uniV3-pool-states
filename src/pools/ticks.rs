@@ -4,9 +4,9 @@ use alloy_primitives::U256;
 use tracing::debug;
 
 use super::PoolDBInner;
-use super::PoolData;
 use super::PoolFetcher;
-use super::PoolTickInfo;
+use crate::pools::types::PoolData;
+use crate::pools::types::PoolTickInfo;
 
 #[derive(Clone)]
 pub struct PoolTickFetcher {
@@ -89,7 +89,14 @@ impl PoolTickFetcher {
 }
 
 impl PoolFetcher for PoolTickFetcher {
-    fn execute_block(
+    fn is_re_executed(&self) -> bool {
+        true
+    }
+    fn is_decoded(&self) -> bool {
+        false
+    }
+
+    fn re_execute_block(
         &self,
         inner: &mut PoolDBInner,
         block_number: u64,
@@ -142,7 +149,7 @@ mod tests {
             TxHash::from_str("0x2bdb4298b35adf058a38dfbe85470f67da1cb76e169496f9fa04fd19fb153274")
                 .unwrap();
         let calculated = test_ticker
-            .execute_block(&mut pool_inner, 12369879, tx_hash, 253)
+            .re_execute_block(&mut pool_inner, 12369879, tx_hash, 253)
             .unwrap();
         let expected = vec![
             PoolData::TickInfo(PoolTickInfo {

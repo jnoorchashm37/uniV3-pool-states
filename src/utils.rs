@@ -42,6 +42,27 @@ pub mod serde_u256 {
     }
 }
 
+pub mod serde_i256 {
+    use alloy_primitives::I256;
+    use serde::{
+        de::{Deserialize, Deserializer},
+        ser::{Serialize, Serializer},
+    };
+
+    pub fn serialize<S: Serializer>(u: &I256, serializer: S) -> Result<S::Ok, S::Error> {
+        let bytes: [u8; 32] = u.to_le_bytes();
+        bytes.serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<I256, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let u: [u8; 32] = Deserialize::deserialize(deserializer)?;
+        Ok(I256::from_le_bytes(u))
+    }
+}
+
 pub mod serde_u160 {
     use alloy_primitives::U160;
     use serde::{

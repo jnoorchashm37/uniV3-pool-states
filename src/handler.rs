@@ -10,7 +10,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
 use tracing::error;
 
-use crate::pools::{PoolData, PoolFetcher};
+use crate::pools::{types::PoolData, PoolFetcher};
 
 pub struct PoolHandler {
     pub node: Arc<EthNodeApi>,

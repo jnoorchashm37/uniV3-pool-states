@@ -4,6 +4,7 @@ use std::{
     task::{Context, Poll},
 };
 
+use crate::pools::types::PoolTrade;
 use alloy_primitives::Address;
 use clickhouse::Row;
 use db_interfaces::{
@@ -17,11 +18,11 @@ use tracing::{error, info};
 
 use crate::{
     const_sql::INITIAL_POOLS,
-    pools::{PoolData, PoolSlot0, PoolTickInfo},
+    pools::types::{PoolData, PoolSlot0, PoolTickInfo},
     utils::serde_address,
 };
 
-clickhouse_dbms!(UniswapV3Tables, [UniV3TickInfo, UniV3Slot0]);
+clickhouse_dbms!(UniswapV3Tables, [UniV3TickInfo, UniV3Slot0, UniV3Trades]);
 
 remote_clickhouse_table!(
     UniswapV3Tables,
@@ -36,6 +37,14 @@ remote_clickhouse_table!(
     "eth_analytics",
     UniV3Slot0,
     PoolSlot0,
+    "src/sql/tables/"
+);
+
+remote_clickhouse_table!(
+    UniswapV3Tables,
+    "eth_analytics",
+    UniV3Trades,
+    PoolTrade,
     "src/sql/tables/"
 );
 
@@ -103,7 +112,7 @@ impl BufferedClickhouse {
         db: Arc<ClickhouseClient<UniswapV3Tables>>,
         vals: Vec<PoolData>,
     ) -> eyre::Result<()> {
-        let (tick_info, slot0) = PoolData::combine_many(vals);
+        let (tick_info, slot0, trades) = PoolData::combine_many(vals);
 
         if !tick_info.is_empty() {
             db.insert_many::<UniV3TickInfo>(&tick_info).await?;
@@ -111,6 +120,10 @@ impl BufferedClickhouse {
 
         if !slot0.is_empty() {
             db.insert_many::<UniV3Slot0>(&slot0).await?;
+        }
+
+        if !trades.is_empty() {
+            db.insert_many::<UniV3Trades>(&trades).await?;
         }
 
         Ok(())

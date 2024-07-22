@@ -1,11 +1,13 @@
-use alloy_primitives::{Address, TxHash, U256};
+use alloy_primitives::{Address, TxHash, I256, U256};
 
 use clickhouse::Row;
-
-use serde::{Deserialize, Serialize};
+use malachite::rounding_modes::RoundingMode;
 
 use crate::pools::UniswapV3;
 use crate::utils::*;
+use malachite::num::conversion::traits::RoundingFrom;
+use malachite::{Natural, Rational};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Row, PartialEq)]
 pub struct PoolTickInfo {
@@ -116,23 +118,99 @@ impl PoolSlot0 {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Row, PartialEq)]
+pub struct PoolTrade {
+    pub block_number: u64,
+    #[serde(with = "serde_tx_hash")]
+    pub tx_hash: TxHash,
+    #[serde(with = "serde_address")]
+    pub pool_address: Address,
+    #[serde(with = "serde_address")]
+    pub token_in: Address,
+    pub token_in_decimals: u8,
+    #[serde(with = "serde_i256")]
+    pub token_in_amount: I256,
+    #[serde(with = "serde_address")]
+    pub token_out: Address,
+    pub token_out_decimals: u8,
+    #[serde(with = "serde_i256")]
+    pub token_out_amount: I256,
+    pub calculated_price: f64,
+}
+
+impl PoolTrade {
+    pub fn new(
+        swap_call: UniswapV3::swapCall,
+        swap_return: UniswapV3::swapReturn,
+        pool_address: Address,
+        tx_hash: TxHash,
+        block_number: u64,
+        token0: &TokenInfo,
+        token1: &TokenInfo,
+    ) -> Self {
+        let (
+            (token_in, token_in_decimals, token_in_amount),
+            (token_out, token_out_decimals, token_out_amount),
+        ) = if swap_call.zeroForOne {
+            (
+                (token0.address, token0.decimals, swap_return.amount0),
+                (token1.address, token1.decimals, swap_return.amount1),
+            )
+        } else {
+            (
+                (token1.address, token1.decimals, swap_return.amount0),
+                (token0.address, token0.decimals, swap_return.amount1),
+            )
+        };
+
+        let token_in_natural = u256_to_natural(token_in_amount.abs().try_into().unwrap());
+        let token_out_natural = u256_to_natural(token_in_amount.abs().try_into().unwrap());
+
+        let calculated_price = f64::rounding_from(
+            Rational::from_naturals(token_in_natural, token_out_natural)
+                / Rational::from_naturals(
+                    Natural::from(token_out_decimals),
+                    Natural::from(token_in_decimals),
+                ),
+            RoundingMode::Nearest,
+        )
+        .0;
+
+        Self {
+            block_number,
+            pool_address,
+            tx_hash,
+            token_in,
+            token_in_decimals,
+            token_in_amount,
+            token_out,
+            token_out_decimals,
+            token_out_amount,
+            calculated_price,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum PoolData {
     TickInfo(PoolTickInfo),
     Slot0(PoolSlot0),
+    Trade(PoolTrade),
 }
 
 impl PoolData {
-    pub fn combine_many(values: Vec<Self>) -> (Vec<PoolTickInfo>, Vec<PoolSlot0>) {
+    pub fn combine_many(values: Vec<Self>) -> (Vec<PoolTickInfo>, Vec<PoolSlot0>, Vec<PoolTrade>) {
         let mut tick_info = Vec::new();
         let mut slot0 = Vec::new();
+        let mut trades = Vec::new();
 
         values.into_iter().for_each(|v| match v {
             PoolData::TickInfo(val) => tick_info.push(val),
             PoolData::Slot0(val) => slot0.push(val),
+            PoolData::Trade(trade) => trades.push(trade),
         });
 
-        (tick_info, slot0)
+        (tick_info, slot0, trades)
     }
 }
 
@@ -152,4 +230,4 @@ macro_rules! to_pool_data {
     };
 }
 
-to_pool_data!(Slot0, TickInfo);
+to_pool_data!(Slot0, TickInfo, Trade);

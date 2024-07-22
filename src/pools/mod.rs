@@ -4,8 +4,7 @@ pub use contracts::*;
 mod fetcher;
 pub use fetcher::*;
 
-mod state;
-pub use state::*;
+pub mod types;
 
 mod ticks;
 pub use ticks::*;
@@ -13,14 +12,30 @@ pub use ticks::*;
 mod slot0;
 pub use slot0::*;
 
+mod trades;
+pub use trades::*;
+
 pub trait PoolFetcher: Send + Sync {
-    fn execute_block(
+    fn is_re_executed(&self) -> bool;
+    fn is_decoded(&self) -> bool;
+
+    fn re_execute_block(
         &self,
-        inner: &mut PoolDBInner,
-        block_number: u64,
-        tx_hash: alloy_primitives::TxHash,
-        tx_index: u64,
-    ) -> eyre::Result<Vec<PoolData>>;
+        _inner: &mut PoolDBInner,
+        _block_number: u64,
+        _tx_hash: alloy_primitives::TxHash,
+        _tx_index: u64,
+    ) -> eyre::Result<Vec<crate::pools::types::PoolData>> {
+        unreachable!()
+    }
+
+    fn decode_block(
+        &self,
+        _block_number: u64,
+        _tx_calls: &[crate::node::FilteredTraceCall],
+    ) -> eyre::Result<Vec<crate::pools::types::PoolData>> {
+        unreachable!()
+    }
 
     fn earliest_block(&self) -> u64;
 
