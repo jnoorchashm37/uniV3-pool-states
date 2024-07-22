@@ -155,12 +155,12 @@ mod tests {
                 "0x1d6da6139d17a2ed774997d2c1928409dd934032e9e39fea2f01541b7774e852",
             )
             .unwrap(),
-            token_in: token1,
-            token_in_decimals: token1_decimals,
-            token_in_amount: I256::try_from(token1_amount).unwrap(),
-            token_out: token0,
-            token_out_decimals: token0_decimals,
-            token_out_amount: I256::try_from(token0_amount).unwrap(),
+            token_in: token0,
+            token_in_decimals: token0_decimals,
+            token_in_amount: I256::try_from(token0_amount).unwrap(),
+            token_out: token1,
+            token_out_decimals: token1_decimals,
+            token_out_amount: I256::try_from(token1_amount).unwrap(),
             calculated_price,
         });
 
