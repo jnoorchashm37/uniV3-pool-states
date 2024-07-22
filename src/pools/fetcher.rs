@@ -90,9 +90,7 @@ impl PoolCaller {
             .get_filtered_transaction_traces(self.block_number, |tx| {
                 filter_traces_by_address_to_call_input(tx, &addresses)
             })
-            .await?
-            .into_iter()
-            .into_group_map();
+            .await?;
 
         if pool_txs.is_empty() {
             debug!(target: "uniV3::fetcher", "no transactions found in block {} for {} pools", self.block_number,self.pools.len());
@@ -100,7 +98,7 @@ impl PoolCaller {
         }
 
         let state =
-            execute_on_threadpool(|| self.decode_transactions(self.block_number, &pool_txs))?;
+            execute_on_threadpool(|| self.decode_transactions(self.block_number, pool_txs))?;
         info!(target: "uniV3::fetcher", "completed block {} for {} pools with {} total values", self.block_number, self.pools.len(), state.len());
 
         Ok(state)
@@ -145,8 +143,9 @@ impl PoolCaller {
     fn decode_transactions(
         &self,
         block_number: u64,
-        block_txs: &HashMap<Address, Vec<FilteredTraceCall>>,
+        pool_txs: Vec<(Address, FilteredTraceCall)>,
     ) -> eyre::Result<Vec<PoolData>> {
+        let block_txs = pool_txs.into_iter().into_group_map();
         let state = self
             .pools
             .par_iter()
