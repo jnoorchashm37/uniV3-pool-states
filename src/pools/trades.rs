@@ -92,10 +92,13 @@ mod tests {
     use std::str::FromStr;
 
     use alloy_primitives::I256;
-
-    use crate::node::{filter_traces_by_address_to_call_input, EthNodeApi};
+    use malachite::Natural;
+    use reth_primitives::TxHash;
 
     use super::*;
+    use crate::node::{filter_traces_by_address_to_call_input, EthNodeApi};
+    use malachite::rounding_modes::RoundingMode;
+    use malachite::{num::conversion::traits::RoundingFrom, Rational};
 
     #[tokio::test]
     async fn test_slot0() {
