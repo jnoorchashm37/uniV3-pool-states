@@ -153,7 +153,7 @@ impl PoolCaller {
             .filter(|pool| pool.is_decoded())
             .map(|pool| {
                 let Some(pool_txs) = block_txs.get(&pool.pool_address()) else {
-                    Ok(Vec::new())
+                    return Ok(Vec::new());
                 };
 
                 pool.decode_block(block_number, pool_txs)
