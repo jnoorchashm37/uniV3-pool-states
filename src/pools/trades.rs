@@ -168,6 +168,6 @@ mod tests {
             println!("{:?}\n", t);
         }
 
-        assert!(calculated.contains(&expected));
+        assert_eq!(calculated[0], expected);
     }
 }
