@@ -75,9 +75,9 @@ async fn execute(executor: TaskExecutor) -> eyre::Result<()> {
         pool_fetchers.extend(tick_info_pools)
     }
 
-    if cli.tick_info {
+    if cli.trades {
         info!(target: "uniV3::trades", "enabled trades fetcher");
-        let tick_info_pools = pools.iter().map(|pool| {
+        let trade_pools = pools.iter().map(|pool| {
             Arc::new(Box::new(PoolTradeFetcher::new(
                 pool.pool_address,
                 TokenInfo::new(pool.token0_address, pool.token0_decimals),
@@ -85,7 +85,7 @@ async fn execute(executor: TaskExecutor) -> eyre::Result<()> {
                 pool.creation_block,
             )) as Box<dyn PoolFetcher>)
         });
-        pool_fetchers.extend(tick_info_pools)
+        pool_fetchers.extend(trade_pools)
     }
 
     let start_block = cli.start_block.unwrap_or(min_block);
