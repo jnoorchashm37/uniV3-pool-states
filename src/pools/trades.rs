@@ -126,7 +126,7 @@ mod tests {
         let reth_db_path = std::env::var("RETH_DB_PATH").expect("no 'RETH_DB_PATH' in .env");
         let node = EthNodeApi::new(&reth_db_path, tokio::runtime::Handle::current()).unwrap();
 
-        let test_block_number = 19933988;
+        let test_block_number = 20364223;
         let pool_address = Address::from_str("0x5777d92f208679db4b9778590fa3cab3ac9e2168").unwrap();
 
         let token0 = Address::from_str("0x6B175474E89094C44Da98b954EedeAC495271d0F").unwrap();
