@@ -153,13 +153,13 @@ impl PoolTrade {
             (token_out, token_out_decimals, token_out_amount),
         ) = if swap_call.zeroForOne {
             (
-                (token0.address, token0.decimals, swap_return.amount0),
                 (token1.address, token1.decimals, swap_return.amount1),
+                (token0.address, token0.decimals, swap_return.amount0),
             )
         } else {
             (
-                (token1.address, token1.decimals, swap_return.amount1),
                 (token0.address, token0.decimals, swap_return.amount0),
+                (token1.address, token1.decimals, swap_return.amount1),
             )
         };
 
