@@ -109,7 +109,7 @@ where
                 trace!(target: "uniV3::cli",  "Received ctrl-c");
             },
             _ = sigterm => {
-                trace!(target: "::cli",  "Received SIGTERM");
+                trace!(target: "uniV3::cli",  "Received SIGTERM");
             },
             res = fut => res?,
         }
@@ -121,7 +121,7 @@ where
 
         tokio::select! {
             _ = ctrl_c => {
-                trace!(target: "::cli",  "Received ctrl-c");
+                trace!(target: "uniV3::cli",  "Received ctrl-c");
             },
             res = fut => res?,
         }
