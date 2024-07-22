@@ -2,23 +2,15 @@ use super::PoolFetcher;
 use crate::node::FilteredTraceCall;
 
 use crate::pools::types::PoolData;
-use crate::pools::types::PoolSlot0;
 
 use crate::pools::types::PoolTrade;
 use crate::pools::UniswapV3;
-use crate::pools::UniswapV3::UniswapV3Calls;
-use crate::utils::u256_to_natural;
+
 use crate::utils::TokenInfo;
 use alloy_primitives::Address;
-use alloy_primitives::TxHash;
-use alloy_primitives::U256;
+
 use alloy_sol_types::SolCall;
-use malachite::num::arithmetic::traits::Pow;
-use malachite::num::conversion::traits::RoundingFrom;
-use malachite::rounding_modes::RoundingMode;
-use malachite::Natural;
-use malachite::Rational;
-use reth_primitives::Bytes;
+
 use tracing::debug;
 
 #[derive(Clone)]
@@ -42,20 +34,6 @@ impl PoolTradeFetcher {
             token1,
             earliest_block,
         }
-    }
-
-    fn calculate_price(&self, sqrt_price_x96: U256) -> f64 {
-        let sqrt_price = u256_to_natural(sqrt_price_x96);
-        let non_adj_price = Rational::from_naturals(sqrt_price.pow(2), Natural::from(2u8).pow(192));
-
-        let decimals_factor = Rational::from_naturals(
-            Natural::from(10u8).pow(self.token0.decimals as u64),
-            Natural::from(10u8).pow(self.token1.decimals as u64),
-        );
-
-        let calculated_price = non_adj_price * decimals_factor;
-
-        f64::rounding_from(calculated_price, RoundingMode::Nearest).0
     }
 }
 
@@ -141,7 +119,7 @@ mod tests {
             Rational::from_naturals(
                 Natural::from(195184845081919051330u128),
                 Natural::from(195208636u128),
-            ) / Rational::from_naturals(Natural::from(6u8), Natural::from(18u8)),
+            ) / Rational::from_naturals(Natural::from(18u8), Natural::from(6u8)),
             RoundingMode::Nearest,
         )
         .0;

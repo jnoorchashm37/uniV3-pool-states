@@ -169,8 +169,8 @@ impl PoolTrade {
         let calculated_price = f64::rounding_from(
             Rational::from_naturals(token_in_natural, token_out_natural)
                 / Rational::from_naturals(
-                    Natural::from(token_out_decimals),
                     Natural::from(token_in_decimals),
+                    Natural::from(token_out_decimals),
                 ),
             RoundingMode::Nearest,
         )
