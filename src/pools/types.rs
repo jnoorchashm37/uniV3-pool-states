@@ -158,8 +158,8 @@ impl PoolTrade {
             )
         } else {
             (
-                (token1.address, token1.decimals, swap_return.amount0),
-                (token0.address, token0.decimals, swap_return.amount1),
+                (token1.address, token1.decimals, swap_return.amount1),
+                (token0.address, token0.decimals, swap_return.amount0),
             )
         };
 
