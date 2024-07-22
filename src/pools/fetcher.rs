@@ -8,7 +8,7 @@ use crate::{
 use alloy_primitives::Address;
 use alloy_sol_types::SolCall;
 use itertools::Itertools;
-use reth_primitives::{revm::env::tx_env_with_recovered, Bytes};
+use reth_primitives::revm::env::tx_env_with_recovered;
 
 use super::{PoolFetcher, UniswapV3};
 use crate::pools::types::PoolData;
@@ -28,7 +28,6 @@ use reth_rpc::eth::EthTransactions;
 use std::{
     collections::{HashMap, HashSet},
     ops::Range,
-    pin::Pin,
     sync::Arc,
 };
 use tokio::sync::mpsc::UnboundedSender;

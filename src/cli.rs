@@ -11,8 +11,12 @@ pub struct CliCmd {
     pub slot0: bool,
 
     /// calls `tick()` on the UniV3 contract for each initialized tick after each transaction that altered the pool's state
-    #[arg(short, long, default_value = "false")]
+    #[arg(short = 'i', long, default_value = "false")]
     pub tick_info: bool,
+
+    /// gets each successful occurence of `swap()` on the UniV3 contract
+    #[arg(short, long, default_value = "false")]
+    pub trades: bool,
 
     /// default is the block of the creation of the first uniV3 pool
     #[arg(short, long)]
@@ -23,7 +27,7 @@ pub struct CliCmd {
     pub end_block: Option<u64>,
 
     /// size of the db buffer
-    #[arg(short, long, default_value = "10000")]
+    #[arg(long, default_value = "10000")]
     pub insert_size: usize,
 
     /// the maximum concurrenct tasks to run at once

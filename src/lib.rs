@@ -2,7 +2,7 @@ use clap::Parser;
 use cli::CliCmd;
 use db::{get_initial_pools, spawn_clickhouse_db};
 use node::EthNodeApi;
-use pools::{PoolFetcher, PoolSlot0Fetcher, PoolTickFetcher};
+use pools::{PoolFetcher, PoolSlot0Fetcher, PoolTickFetcher, PoolTradeFetcher};
 use std::sync::Arc;
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::info;
@@ -71,6 +71,19 @@ async fn execute(executor: TaskExecutor) -> eyre::Result<()> {
                 Box::new(PoolTickFetcher::new(pool.pool_address, pool.creation_block))
                     as Box<dyn PoolFetcher>,
             )
+        });
+        pool_fetchers.extend(tick_info_pools)
+    }
+
+    if cli.tick_info {
+        info!(target: "uniV3::trades", "enabled trades fetcher");
+        let tick_info_pools = pools.iter().map(|pool| {
+            Arc::new(Box::new(PoolTradeFetcher::new(
+                pool.pool_address,
+                TokenInfo::new(pool.token0_address, pool.token0_decimals),
+                TokenInfo::new(pool.token1_address, pool.token1_decimals),
+                pool.creation_block,
+            )) as Box<dyn PoolFetcher>)
         });
         pool_fetchers.extend(tick_info_pools)
     }

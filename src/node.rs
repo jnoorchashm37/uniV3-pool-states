@@ -5,7 +5,7 @@ use alloy_rpc_types_trace::parity::Action;
 use alloy_rpc_types_trace::parity::TraceOutput;
 use alloy_rpc_types_trace::parity::TraceResultsWithTransactionHash;
 use alloy_rpc_types_trace::parity::TraceType;
-use itertools::Itertools;
+
 use reth_api_libmdbx::RethDbApiClient;
 use reth_primitives::Bytes;
 use reth_primitives::SealedBlockWithSenders;
@@ -18,7 +18,6 @@ use reth_rpc::eth::EthTransactions;
 use reth_rpc_api::EthApiServer;
 use tracing::info;
 
-use std::collections::HashMap;
 use std::collections::HashSet;
 use tokio::runtime::Handle;
 
@@ -134,34 +133,50 @@ pub fn filter_traces_by_address_to_call_input(
     addresses: &[Address],
 ) -> Vec<(Address, FilteredTraceCall)> {
     let address_set = addresses.iter().map(|a| *a).collect::<HashSet<_>>();
-    tx.full_trace
+    let mut failed = false;
+    let traces = tx
+        .full_trace
         .trace
         .into_iter()
-        .filter_map(|trace| match trace.action {
-            Action::Call(call) => {
-                if let Some(f) = address_set.get(&call.to) {
-                    if let Some(ret) = trace.result {
-                        match ret {
-                            TraceOutput::Call(call_ret) => Some((
-                                *f,
-                                FilteredTraceCall::new(
-                                    tx.transaction_hash,
-                                    call.input,
-                                    call_ret.output,
-                                ),
-                            )),
-                            _ => None,
+        .filter_map(|trace| {
+            if trace.error.is_some() {
+                failed = true;
+                return None;
+            }
+
+            match trace.action {
+                Action::Call(call) => {
+                    if let Some(f) = address_set.get(&call.to) {
+                        if let Some(ret) = trace.result {
+                            match ret {
+                                TraceOutput::Call(call_ret) => Some((
+                                    *f,
+                                    FilteredTraceCall::new(
+                                        tx.transaction_hash,
+                                        call.input,
+                                        call_ret.output,
+                                    ),
+                                )),
+
+                                _ => None,
+                            }
+                        } else {
+                            None
                         }
                     } else {
                         None
                     }
-                } else {
-                    None
                 }
+                _ => None,
             }
-            _ => None,
         })
-        .collect()
+        .collect();
+
+    if failed {
+        Vec::new()
+    } else {
+        traces
+    }
 }
 
 pub struct FilteredTraceCall {
