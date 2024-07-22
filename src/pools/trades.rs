@@ -183,6 +183,10 @@ mod tests {
             calculated_price,
         });
 
+        for t in &calculated {
+            println!("{:?}\n", t);
+        }
+
         assert!(calculated.contains(&expected));
     }
 }
