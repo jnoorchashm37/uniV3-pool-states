@@ -165,9 +165,9 @@ impl PoolTrade {
         };
 
         let token_in_natural = u256_to_natural(token_in_amount.abs().try_into().unwrap());
-        println!("IN: {:?}", token_in_natural.to_debug_string());
-        let token_out_natural = u256_to_natural(token_in_amount.abs().try_into().unwrap());
-        println!("OUT: {:?}", token_out_natural.to_debug_string());
+        // println!("IN: {:?}", token_in_natural.to_debug_string());
+        let token_out_natural = u256_to_natural(token_out_amount.abs().try_into().unwrap());
+        //  println!("OUT: {:?}", token_out_natural.to_debug_string());
 
         let calculated_price = f64::rounding_from(
             Rational::from_naturals(token_in_natural, token_out_natural)
