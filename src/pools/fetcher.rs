@@ -1,11 +1,11 @@
 use crate::{
     execute_on_threadpool,
     node::{
-        filter_traces_by_address_set_to_tx_hash, filter_traces_by_address_to_call_input,
-        EthNodeApi, FilteredTraceCall,
+        filter_traces_by_address_set_to_tx_hash, filter_traces_by_address_to_call_input, EthNodeApi,
     },
 };
 use alloy_primitives::Address;
+use alloy_rpc_types_trace::parity::TraceResultsWithTransactionHash;
 use alloy_sol_types::SolCall;
 use itertools::Itertools;
 use reth_primitives::revm::env::tx_env_with_recovered;
@@ -25,11 +25,7 @@ use reth_revm::{
     DatabaseCommit,
 };
 use reth_rpc::eth::EthTransactions;
-use std::{
-    collections::{HashMap, HashSet},
-    ops::Range,
-    sync::Arc,
-};
+use std::{collections::HashSet, ops::Range, sync::Arc};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::{debug, info};
 
@@ -85,20 +81,16 @@ impl PoolCaller {
             .map(|pool| pool.pool_address())
             .collect::<Vec<_>>();
 
-        let pool_txs = self
-            .node
-            .get_filtered_transaction_traces(self.block_number, |tx| {
-                filter_traces_by_address_to_call_input(tx, &addresses)
-            })
-            .await?;
+        let block_traces = self.node.get_transaction_traces(self.block_number).await?;
 
-        if pool_txs.is_empty() {
+        if block_traces.is_empty() {
             debug!(target: "uniV3::fetcher", "no transactions found in block {} for {} pools", self.block_number,self.pools.len());
             return Ok(Vec::new());
         }
 
-        let state =
-            execute_on_threadpool(|| self.decode_transactions(self.block_number, pool_txs))?;
+        let state = execute_on_threadpool(|| {
+            self.decode_transactions(self.block_number, addresses, block_traces)
+        })?;
         info!(target: "uniV3::fetcher", "completed block {} for {} pools with {} total values", self.block_number, self.pools.len(), state.len());
 
         Ok(state)
@@ -125,15 +117,10 @@ impl PoolCaller {
             .map(|pool| pool.pool_address())
             .collect::<Vec<_>>();
 
-        let pool_txs = self
-            .node
-            .get_filtered_transaction_traces(self.block_number, |tx| {
-                filter_traces_by_address_set_to_tx_hash(tx, &addresses)
-            })
-            .await?;
+        let block_traces = self.node.get_transaction_traces(self.block_number).await?;
 
         let state = execute_on_threadpool(|| {
-            self.re_execute_transactions(pool_inner, &parent_block_txs, &pool_txs)
+            self.re_execute_transactions(pool_inner, &parent_block_txs, addresses, block_traces)
         })?;
         info!(target: "uniV3::fetcher", "completed block {} for {} pools with {} total values", self.block_number, self.pools.len(), state.len());
 
@@ -143,15 +130,20 @@ impl PoolCaller {
     fn decode_transactions(
         &self,
         block_number: u64,
-        pool_txs: Vec<(Address, FilteredTraceCall)>,
+        addresses: Vec<Address>,
+        block_traces: Vec<TraceResultsWithTransactionHash>,
     ) -> eyre::Result<Vec<PoolData>> {
-        let block_txs = pool_txs.into_iter().into_group_map();
+        let pool_traces = block_traces
+            .into_iter()
+            .flat_map(|trace| filter_traces_by_address_to_call_input(trace, &addresses))
+            .into_group_map();
+
         let state = self
             .pools
             .par_iter()
             .filter(|pool| pool.is_decoded())
             .map(|pool| {
-                let Some(pool_txs) = block_txs.get(&pool.pool_address()) else {
+                let Some(pool_txs) = pool_traces.get(&pool.pool_address()) else {
                     return Ok(Vec::new());
                 };
 
@@ -169,8 +161,14 @@ impl PoolCaller {
         &self,
         inner: PoolDBInner,
         parent_block_txs: &[TransactionSignedEcRecovered],
-        pool_txs: &[(Address, TxHash)],
+        addresses: Vec<Address>,
+        block_traces: Vec<TraceResultsWithTransactionHash>,
     ) -> eyre::Result<Vec<PoolData>> {
+        let pool_txs = block_traces
+            .into_iter()
+            .flat_map(|trace| filter_traces_by_address_set_to_tx_hash(trace, &addresses))
+            .collect::<Vec<_>>();
+
         let state = self
             .pools
             .par_iter()

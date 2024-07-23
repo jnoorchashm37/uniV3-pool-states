@@ -88,21 +88,6 @@ impl EthNodeApi {
                 "no traces found for block {block_number}"
             )))?)
     }
-
-    pub async fn get_filtered_transaction_traces<F, O>(
-        &self,
-        block_number: u64,
-        f: F,
-    ) -> eyre::Result<Vec<O>>
-    where
-        F: Fn(TraceResultsWithTransactionHash) -> Vec<O>,
-    {
-        let traces = self.get_transaction_traces(block_number).await?;
-
-        let vals = traces.into_iter().flat_map(|tx| f(tx)).collect::<Vec<_>>();
-
-        Ok(vals)
-    }
 }
 
 pub fn filter_traces_by_address_set_to_tx_hash(

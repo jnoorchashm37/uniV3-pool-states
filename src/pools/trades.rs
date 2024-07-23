@@ -92,6 +92,7 @@ mod tests {
     use std::str::FromStr;
 
     use alloy_primitives::I256;
+    use itertools::Itertools;
     use malachite::Natural;
     use reth_primitives::TxHash;
 
@@ -134,18 +135,18 @@ mod tests {
             12376729,
         );
 
-        let pool_txs = node
-            .get_filtered_transaction_traces(test_block_number, |tx| {
-                filter_traces_by_address_to_call_input(tx, &[pool_address])
-            })
+        let block_traces = node
+            .get_transaction_traces(test_block_number)
             .await
-            .unwrap()
+            .unwrap();
+
+        let pool_traces = block_traces
             .into_iter()
-            .map(|(_, t)| t)
-            .collect::<Vec<_>>();
+            .flat_map(|trace| filter_traces_by_address_to_call_input(trace, &[pool_address]))
+            .into_group_map();
 
         let calculated = test_ticker
-            .decode_block(test_block_number, &pool_txs)
+            .decode_block(test_block_number, pool_traces.get(&pool_address).unwrap())
             .unwrap();
 
         let expected = PoolData::Trade(PoolTrade {
